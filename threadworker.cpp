@@ -76,7 +76,7 @@ void ThreadWorker::doWork()
             {
                 if(lastHostlookup.secsTo(QDateTime::currentDateTime()) >5)
                 {
-                    //CancelConnection();
+                    emit initFtpReq(QString("서버[%1] HostLookup 타임아웃...").arg(config.ip.trimmed()));
                 }
             }
             else
@@ -158,6 +158,9 @@ void ThreadWorker::doWork()
                             m_iFTPTrans = -1;
                             m_iFTPRenameFail++;
                             QString logstr = QString("FTP파일 이름변경 실패 : %1 -> %2").arg(rname).arg(sendFile.filename);
+                            //동일한 파일이 있으면 삭제한다.
+                            m_pftp->remove(rname);
+                            m_pftp->remove(sendFile.filename);
                             log->write(logstr,LOG_NOTICE); qDebug() << logstr;
                             emit logappend(logstr);
                         }
