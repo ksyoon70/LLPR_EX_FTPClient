@@ -50,3 +50,8 @@ FORMS += \
 
 
 CONFIG += c++11
+
+RESOURCES += \
+    images/cdtoparent.png \
+    images/dir.png \
+    images/file.png

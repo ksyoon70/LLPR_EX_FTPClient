@@ -43,9 +43,12 @@ private slots:
     void ftpCommandFinished(int id,bool error);
     void ftpStatusChanged(int state);
     void initFtpReqHandler(QString str);
+    void addToList(const QUrlInfo &urlInfo);
+    void localFileUpdate(SendFileInfo *pItem);
+    void loadProgress(qint64 bytesSent,qint64 bytesTotal);
 #endif
 private:
-#define Program_Version  "LLPR_EX_FTPClient v1.0.5 (date: 2020/04/22)"
+#define Program_Version  "LLPR_EX_FTPClient v1.1.0 (date: 2021/05/24)"
     Ui::MainWindow *ui;
 
     configdlg *pconfigdlg;
@@ -59,6 +62,7 @@ private:
     QThread *mp_Thread;
     ThreadWorker *mp_tWorker;
     QFtp *m_pftp;
+    QHash<QString, bool> isDirectory;
 
     int m_maxlogline;
 };

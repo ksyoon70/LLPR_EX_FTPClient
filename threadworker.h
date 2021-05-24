@@ -33,9 +33,9 @@ public:
     void RemoveFirstFile(SendFileInfo data);
     void ClearAll();
     int Count();
-private:
     QList<SendFileInfo> fileList;
-    const int MAX_FILE = 10000;
+private:
+    const int MAX_FILE = 20;
     QMutex mutex;
 
 };
@@ -51,6 +51,7 @@ signals:
     void finished();
     void initFtpReq(QString str);  //ftp 초기화 요청
     void logappend(QString logstr);
+    void localFileUpdate(SendFileInfo *sendFileInfo);
 public slots:
     void doWork();
     //void ftpCommandFinished(int id,bool error);
@@ -67,7 +68,7 @@ public:
 
     Syslogger *log;
     int m_loglevel;
-    const int MAXFTPCOUNT = 500;
+    const int MAXFTPCOUNT = 10;
 
     SendFileInfoList sendFileList;
     bool thread_run;
@@ -81,6 +82,8 @@ public:
     void Connect2FTP();
     void SetConfig(CenterInfo configinfo,QFtp *pFtp);
     void DeleteFile(QString filepath);
+
+    void RefreshLocalFileList();
 };
 
 #endif // THREADWORKER_H

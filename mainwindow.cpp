@@ -12,6 +12,19 @@ MainWindow::MainWindow(QWidget *parent) :
 
     m_maxlogline = 500;
 
+    ui->localFileList->setEnabled(true);
+    ui->localFileList->setRootIsDecorated(false);
+    ui->localFileList->setHeaderLabels(QStringList() << tr("Name") << tr("Size") << tr("Time"));
+    ui->localFileList->header()->setStretchLastSection(false);
+
+
+    ui->remoteFileList->setEnabled(false);
+    ui->remoteFileList->setRootIsDecorated(false);
+    ui->remoteFileList->setHeaderLabels(QStringList() << tr("Name") << tr("Size") << tr("Time"));
+    ui->remoteFileList->header()->setStretchLastSection(false);
+
+    ui->progressBar->setValue(0);
+
     init();
 }
 
@@ -54,6 +67,9 @@ void MainWindow::init()
     QObject::connect(m_pftp, SIGNAL(commandFinished(int,bool)),this, SLOT(ftpCommandFinished(int,bool)));
     QObject::connect(m_pftp, SIGNAL(stateChanged(int)),this, SLOT(ftpStatusChanged(int)));
     QObject::connect(mp_tWorker, SIGNAL(initFtpReq(QString)),this, SLOT(initFtpReqHandler(QString)));
+    QObject::connect(m_pftp, SIGNAL(listInfo(QUrlInfo)),this, SLOT(addToList(QUrlInfo)));
+    QObject::connect(mp_tWorker, SIGNAL(localFileUpdate(SendFileInfo *)), this, SLOT(localFileUpdate(SendFileInfo *)));
+    QObject::connect(m_pftp, SIGNAL(dataTransferProgress(qint64 ,qint64)),this, SLOT(loadProgress(qint64 ,qint64)));
 
     initaction();
 
@@ -197,13 +213,22 @@ void MainWindow::logappend(QString logstr)
 {
     bool brtn = loglinecheck();
 
-    QString qdt = QDateTime::currentDateTime().toString("[HH:mm:ss:zzz]") + logstr;
+    QString qdt = QDateTime::currentDateTime().toString("[HH:mm:ss:zzz] ") + logstr;
 
     if(brtn)
     {
-        ui->teFTPlog->setPlainText(qdt);
+        //ui->teFTPlog->setPlainText(qdt);
+        ui->teFTPlog->clear();
+        ui->teFTPlog->append(qdt);
     }
-    else ui->teFTPlog->append(qdt);
+    else
+    {
+        ui->teFTPlog->append(qdt);
+    }
+
+    QTextCursor cursor(ui->teFTPlog->textCursor());
+    cursor.movePosition(QTextCursor::EndOfLine);
+    ui->teFTPlog->setTextCursor(cursor);
 
 }
 
@@ -245,7 +270,9 @@ void MainWindow::on_connectButton_clicked()
     QObject::connect(mp_tWorker, SIGNAL(finished()), mp_tWorker, SLOT(deleteLater()));
     QObject::connect(mp_Thread, SIGNAL(finished()), mp_Thread, SLOT(deleteLater()));
     QObject::connect(mp_tWorker, SIGNAL(logappend(QString)),this,SLOT(logappend(QString)));
-
+    QObject::connect(m_pftp, SIGNAL(listInfo(QUrlInfo)),this, SLOT(addToList(QUrlInfo)));
+    QObject::connect(mp_tWorker, SIGNAL(localFileUpdate(SendFileInfo *)), this, SLOT(localFileUpdate(SendFileInfo *)));
+    QObject::connect(m_pftp, SIGNAL(dataTransferProgress(qint64 ,qint64)),this, SLOT(loadProgress(qint64 ,qint64)));
     mp_Thread->start();
 }
 
@@ -269,6 +296,8 @@ void MainWindow::ftpCommandFinished(int id, bool error)
         else
             mp_tWorker->m_iFTPTrans = 1; //success
     }
+    else if (mp_tWorker->m_pftp->currentCommand() == QFtp::Login)
+        m_pftp->list();
     else if(mp_tWorker->m_pftp->currentCommand() == QFtp::Rename )
     {
         if(error)
@@ -323,9 +352,14 @@ void MainWindow::ftpStatusChanged(int state)
             m_pftp = new QFtp();
             QObject::connect(m_pftp, SIGNAL(commandFinished(int,bool)),this, SLOT(ftpCommandFinished(int,bool)));
             QObject::connect(m_pftp, SIGNAL(stateChanged(int)),this, SLOT(ftpStatusChanged(int)));
+            QObject::connect(m_pftp, SIGNAL(listInfo(QUrlInfo)),this, SLOT(addToList(QUrlInfo)));
+            QObject::connect(mp_tWorker, SIGNAL(localFileUpdate(SendFileInfo *)), this, SLOT(localFileUpdate(SendFileInfo *)));
+            QObject::connect(m_pftp, SIGNAL(dataTransferProgress(qint64 ,qint64)),this, SLOT(loadProgress(qint64 ,qint64)));
             mp_tWorker->SetConfig(commonvalues::center_list.value(0),m_pftp);
-            //mp_tWorker->InitConnection();
-            //Connect2FTP();
+            ui->remoteFileList->setEnabled(false);
+            ui->remoteFileList->clear();
+            ui->progressBar->setValue(0);
+
         }
         break;
     case QFtp::HostLookup:
@@ -335,6 +369,7 @@ void MainWindow::ftpStatusChanged(int state)
         mp_tWorker->lastHostlookup = QDateTime::currentDateTime().addDays(-1);
         break;
     case QFtp::Connected:
+        ui->remoteFileList->setEnabled(true);
         break;
     case QFtp::Close:
         //CancelConnection();
@@ -353,6 +388,65 @@ void MainWindow::initFtpReqHandler(QString str)
     m_pftp = new QFtp();
     QObject::connect(m_pftp, SIGNAL(commandFinished(int,bool)),this, SLOT(ftpCommandFinished(int,bool)));
     QObject::connect(m_pftp, SIGNAL(stateChanged(int)),this, SLOT(ftpStatusChanged(int)));
+    QObject::connect(m_pftp, SIGNAL(listInfo(QUrlInfo)),this, SLOT(addToList(QUrlInfo)));
+    QObject::connect(mp_tWorker, SIGNAL(localFileUpdate(SendFileInfo *)), this, SLOT(localFileUpdate(SendFileInfo *)));
+    QObject::connect(m_pftp, SIGNAL(dataTransferProgress(qint64 ,qint64)),this, SLOT(loadProgress(qint64 ,qint64)));
     mp_tWorker->SetConfig(commonvalues::center_list.value(0),m_pftp);
+}
+
+void MainWindow::addToList(const QUrlInfo &urlInfo)
+{
+    QTreeWidgetItem *item = new QTreeWidgetItem;
+    item->setText(0, urlInfo.name());
+    item->setText(1, QString::number(urlInfo.size()));
+    item->setText(2, urlInfo.lastModified().toString("MMM dd yyyy"));
+
+    QPixmap pixmap(urlInfo.isDir() ? ":/images/dir.png" : ":/images/file.png");
+    item->setIcon(0, pixmap);
+
+    isDirectory[urlInfo.name()] = urlInfo.isDir();
+    ui->remoteFileList->addTopLevelItem(item);
+    if (!ui->remoteFileList->currentItem()) {
+        ui->remoteFileList->setCurrentItem(ui->remoteFileList->topLevelItem(0));
+        ui->remoteFileList->setEnabled(true);
+    }
+}
+
+void MainWindow::localFileUpdate(SendFileInfo * pItem)
+{
+    if(pItem == nullptr)
+    {
+        ui->localFileList->clear();
+    }
+    else
+    {
+        QTreeWidgetItem *item = new QTreeWidgetItem;
+        item->setText(0, pItem->filename);
+        QString filepath = QString("%1").arg(pItem->filepath);
+        item->setText(1, QString::number(QFile(filepath).size()));
+        QFile file(filepath);
+        QFileInfo fileInfo;
+        fileInfo.setFile(file);
+        QDateTime created = fileInfo.lastModified();
+        item->setText(2, created.toString("MMM dd yyyy"));
+
+        QPixmap pixmap(fileInfo.isDir() ? ":/images/dir.png" : ":/images/file.png");
+        item->setIcon(0, pixmap);
+
+        ui->localFileList->addTopLevelItem(item);
+        if (!ui->localFileList->currentItem()) {
+            ui->localFileList->setCurrentItem(ui->localFileList->topLevelItem(0));
+            ui->localFileList->setEnabled(true);
+        }
+        pItem = nullptr;
+
+    }
+
+}
+void MainWindow::loadProgress(qint64 bytesSent, qint64 bytesTotal)    //Update progress bar
+{
+    ui->label_Byte->setText(QString("%1 / %2").arg(bytesSent).arg(bytesTotal));
+    ui->progressBar->setMaximum(bytesTotal); //Max
+    ui->progressBar->setValue(bytesSent);  //The current value
 }
 #endif

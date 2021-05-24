@@ -17,10 +17,6 @@ ThreadWorker::ThreadWorker(QObject *parent) : QObject(parent)
     m_iFTPRenameFail = 0;
     m_iFTPTransFail = 0;
     log = new Syslogger(this,"mainwindow",true,commonvalues::loglevel);
-    //m_pftp = new QFtp();
-
-    //QObject::connect(m_pftp, SIGNAL(commandFinished(int,bool)),this, SLOT(ftpCommandFinished(int,bool)));
-    //QObject::connect(m_pftp, SIGNAL(stateChanged(int)),this, SLOT(ftpStatusChanged(int)));
 
     thread_run = true;
 
@@ -35,15 +31,18 @@ void ThreadWorker::doWork()
     QDateTime lastTime = QDateTime::currentDateTime().addDays(-1);
     lastHostlookup = QDateTime::currentDateTime().addDays(-1);
 
+    QString lastFilename;
+    QString curFilename;
+
     while(thread_run)
     {
-        if(sendFileList.Count() == 0)
+        lastFilename = curFilename;
+        ScanSendDataFiles();
+        SendFileInfo nowFileInfo =  sendFileList.GetFirstFile();
+        curFilename = QString(nowFileInfo.filename);
+        if(QString::compare(lastFilename,curFilename) != 0)
         {
-            ScanSendDataFiles();
-            QThread::msleep(500);
-
-            //if(sendFileList.Count() == 0 )
-            //    continue;
+            RefreshLocalFileList();
         }
 
         //check connection  && connect
@@ -88,6 +87,12 @@ void ThreadWorker::doWork()
                     emit logappend(logstr);
                 }
 
+                if(sendFileList.Count() == 0)
+                {
+                    QThread::msleep(1000);
+                    continue;
+                }
+
                 SendFileInfo sendFile = sendFileList.GetFirstFile();
                 if(sendFile.filename.isNull() || sendFile.filename.isEmpty())
                 {
@@ -129,7 +134,7 @@ void ThreadWorker::doWork()
                 {
                     m_iFTPTransFail = 0;
 
-                    QString logstr = QString("FTP파일 전송성공 : %1").arg(sendFile.filepath);
+                    QString logstr = QString("FTP파일 전송성공 : %1").arg(sendFile.filename);
                     log->write(logstr,LOG_NOTICE); qDebug() << logstr;
                     emit logappend(logstr);
 
@@ -166,7 +171,8 @@ void ThreadWorker::doWork()
                         }
                     }
 
-                    if(m_iFTPTrans > 0 || m_iFTPRenameFail > 3)
+                    //if(m_iFTPTrans > 0 || m_iFTPRenameFail > 3)
+                    if(m_iFTPTrans > 0)
                     {
                         sendFileList.RemoveFirstFile(sendFile);
                         m_iFTPRenameFail = 0;
@@ -181,7 +187,7 @@ void ThreadWorker::doWork()
                 else
                 {
                     m_iFTPTransFail++;
-                    QString logstr = QString("FTP파일 전송실패(fcnt:%1) : %2").arg(m_iFTPTransFail).arg(sendFile.filepath);
+                    QString logstr = QString("FTP파일 전송실패(fcnt:%1) : %2").arg(m_iFTPTransFail).arg(sendFile.filename);
                     log->write(logstr,LOG_NOTICE); qDebug() << logstr;
                     //emit logappend(logstr);
                     emit initFtpReq(logstr);
@@ -248,13 +254,14 @@ void ThreadWorker::ScanSendDataFiles()
         QString fpath = filepath.absoluteFilePath();
         if( info.ParseFilepath(fpath))
         {
-            if( sendFileList.AddFile(info))
+            sendFileList.AddFile(info);
+            /*if( sendFileList.AddFile(info))
             {
                 logstr = QString("FTP전송 데이터 추가 : %1").arg(fpath);
                 log->write(logstr,LOG_NOTICE);  qDebug() <<  logstr;
 
             }
-            else DeleteFile(fpath);
+            else DeleteFile(fpath);*/
         }
         else
             DeleteFile(fpath);
@@ -343,6 +350,20 @@ void ThreadWorker::DeleteFile(QString filepath)
     {
         qDebug() << QString("DeleteFile exception");
     }
+}
+
+void ThreadWorker::RefreshLocalFileList()
+{
+    emit localFileUpdate(nullptr);
+    foreach( SendFileInfo item, sendFileList.fileList )
+    {
+        // will items always be processed in numerical order by index?
+        // do something with "item";
+        SendFileInfo *pItem = new SendFileInfo();
+        memcpy(pItem,&item,sizeof(SendFileInfo));
+        emit localFileUpdate(pItem);
+    }
+
 }
 
 #if 0
@@ -531,11 +552,6 @@ bool SendFileInfoList::AddFile(SendFileInfo data)
     mutex.lock();
     try
     {
-        if( fileList.count() >= MAX_FILE)
-        {
-            SendFileInfo file = GetFirstFile();
-            if(!file.filename.isNull() && !file.filename.isEmpty()) RemoveFirstFile(file);
-        }
         fileList.append(data);
     }
     catch( ... )
