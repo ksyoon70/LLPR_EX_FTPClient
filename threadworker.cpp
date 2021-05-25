@@ -16,7 +16,25 @@ ThreadWorker::ThreadWorker(QObject *parent) : QObject(parent)
     m_iFTPTrans = 0;
     m_iFTPRenameFail = 0;
     m_iFTPTransFail = 0;
-    log = new Syslogger(this,"mainwindow",true,commonvalues::loglevel);
+    QString logpath = QApplication::applicationDirPath() + "/log";
+    QString dir = logpath;
+    QDir mdir(dir);
+    if(!mdir.exists())
+    {
+         mdir.mkpath(dir);
+    }
+
+    CenterInfo config = commonvalues::center_list.value(0);
+
+    QString backupPath = QString("%1/%2").arg(QApplication::applicationDirPath()).arg(config.backupPath);
+    QDir backupdir(backupPath);
+    if(!backupdir.exists())
+    {
+         backupdir.mkpath(backupPath);
+    }
+
+
+    log = new Syslogger(this,"mainwindow",true,commonvalues::loglevel,logpath);
 
     thread_run = true;
 
@@ -114,6 +132,17 @@ void ThreadWorker::doWork()
                 QFile file(sendFile.filepath);
                 if(!file.open(QIODevice::ReadOnly)) continue;
 
+                ///파일 싸이즈가 0이면 삭제한다.
+                if(file.size() == 0)
+                {
+                    file.close();
+                    sendFileList.RemoveFirstFile(sendFile);
+                    QString logstr = QString("FTP파일 크기 에러(0)-->삭제: %1").arg(sendFile.filename);
+                    log->write(logstr,LOG_NOTICE); qDebug() << logstr;
+                    emit logappend(logstr);
+                    continue;
+                }
+
                 QString fname = sendFile.filename.mid(0,1); //H,X
                 QString rname = sendFile.filename.mid(1); //~~~.jpg , ~~~.txt
                 if(sendFile.filename.mid(0,1).compare("M") != 0 )
@@ -174,7 +203,14 @@ void ThreadWorker::doWork()
                     //if(m_iFTPTrans > 0 || m_iFTPRenameFail > 3)
                     if(m_iFTPTrans > 0)
                     {
+                        CenterInfo config = commonvalues::center_list.value(0);
+                        if(config.bimagebackup)
+                        {
+                            //이미지를 백업하는 옵션이 있으면...
+                            CopyFile(sendFile);
+                        }
                         sendFileList.RemoveFirstFile(sendFile);
+
                         m_iFTPRenameFail = 0;
                         isRetry = false;
                     }
@@ -189,7 +225,7 @@ void ThreadWorker::doWork()
                     m_iFTPTransFail++;
                     QString logstr = QString("FTP파일 전송실패(fcnt:%1) : %2").arg(m_iFTPTransFail).arg(sendFile.filename);
                     log->write(logstr,LOG_NOTICE); qDebug() << logstr;
-                    //emit logappend(logstr);
+                    emit logappend(logstr);
                     emit initFtpReq(logstr);
                 }
             }
@@ -349,6 +385,49 @@ void ThreadWorker::DeleteFile(QString filepath)
     catch( ... )
     {
         qDebug() << QString("DeleteFile exception");
+    }
+}
+
+void ThreadWorker::CopyFile(SendFileInfo data)
+{
+    try
+    {
+        QFile file(data.filepath);
+
+        CenterInfo config = commonvalues::center_list.value(0);
+
+        char TempPath[MAX_PATH];
+        char newFilePath[MAX_PATH];
+         //----------------------------------------------------------------------------
+         char TempDate[20];
+         char TempHour[20];
+         char szTimeStamp[50];
+
+         time_t  now_time;
+         struct tm *today;
+
+         time(&now_time);
+         today = localtime(&now_time);
+         strftime(szTimeStamp, 30, "%Y-%m-%d %H:%M:%S", today);
+
+         log->GetCurrentDate(TempDate);
+         log->GetCurrentHour(TempHour);
+
+         QString backupPath = QString("%1/%2").arg(QApplication::applicationDirPath()).arg(config.backupPath);
+
+         sprintf(TempPath,"%s/%s/%s", backupPath.toUtf8().constData(),TempDate,TempHour);
+         QDir mdir(TempPath);
+         if(!mdir.exists())
+         {
+             mdir.mkpath(TempPath);
+         }
+         sprintf(newFilePath,"%s/%s/%s/%s", backupPath.toUtf8().constData(),TempDate,TempHour,data.filename.toUtf8().constData());
+         file.copy(newFilePath);
+
+    }
+    catch( ... )
+    {
+        qDebug() << QString("CopyFile Expection");
     }
 }
 

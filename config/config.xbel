@@ -1,0 +1,222 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<xml>
+    <title name="CameraChannel">
+        <title name="Count" value="2"/>
+    </title>
+    <title name="Channel0">
+        <title name="Camera">
+            <title name="IP" value="169.254.0.1"/>
+            <title name="SerialNumber" value="0"/>
+            <title name="Shutter" value="0"/>
+            <title name="Gain" value="0"/>
+            <title name="WBRed" value="0"/>
+            <title name="WBBlue" value="0"/>
+            <title name="Strobe_Polarity" value="0"/>
+        </title>
+        <title name="AutoIris">
+            <title name="Basic">
+                <title name="Use" value="True"/>
+                <title name="StandardBr" value="60"/>
+                <title name="BrRange" value="5"/>
+                <title name="BrInterval" value="1000"/>
+                <title name="BrAvgCount" value="5"/>
+                <title name="MaxShutter" value="1000.00"/>
+                <title name="MinShutter" value="50.00"/>
+                <title name="ShutterStep" value="10.00"/>
+                <title name="MaxGain" value="16.00"/>
+                <title name="MinGain" value="0.00"/>
+                <title name="GainStep" value="1.00"/>
+                <title name="Debug" value="False"/>
+            </title>
+            <title name="Reflection&amp;Back">
+                <title name="Reflection" value="True"/>
+                <title name="Backlight" value="True"/>
+                <title name="MaxBr" value="200"/>
+                <title name="MinBr" value="30"/>
+                <title name="BrStep" value="10"/>
+                <title name="MaxPlateBr" value="220"/>
+                <title name="MinPlateBr" value="30"/>
+                <title name="BrChangeCount" value="10"/>
+                <title name="Mode" value="3"/>
+            </title>
+            <title name="NoRecog">
+                <title name="Use" value="True"/>
+                <title name="MaxBr" value="200"/>
+                <title name="MinBr" value="30"/>
+            </title>
+        </title>
+        <title name="Light">
+            <title name="24H" value="False"/>
+            <title name="Shutter" value="1000.00"/>
+            <title name="OnGain" value="16.00"/>
+            <title name="OffGain" value="0.00"/>
+        </title>
+        <title name="LIC">
+            <title name="Port"/>
+        </title>
+        <title name="CCU">
+            <title name="Port"/>
+            <title name="VioREPTimeout" value="100"/>
+        </title>
+        <title name="TGMCU">
+            <title name="TGLane" value="1"/>
+        </title>
+        <title name="RECOGNITION">
+            <title name="PLATEAREA">
+                <title name="sx" value="0"/>
+                <title name="sy" value="0"/>
+                <title name="width" value="1920"/>
+                <title name="height" value="1080"/>
+            </title>
+            <title name="BRAREA">
+                <title name="sx" value="0"/>
+                <title name="sy" value="0"/>
+                <title name="width" value="1920"/>
+                <title name="height" value="1080"/>
+            </title>
+            <title name="VehiclePosition" value="0"/>
+            <title name="RecognitionMode" value="2"/>
+            <title name="RecogSeq" value="43526187"/>
+            <title name="RepeatTime" value="4"/>
+            <title name="RAWSAVE">
+                <title name="Type" value="0"/>
+                <title name="COUNT" value="0"/>
+            </title>
+        </title>
+    </title>
+    <title name="Confirm">
+        <title name="ConfirmType" value="0"/>
+    </title>
+    <title name="CCU">
+        <title name="seqincreaseType" value="0"/>
+        <title name="CCUType" value="0"/>
+        <title name="CCUProtocolType" value="0"/>
+        <title name="CCUVioDelay" value="200"/>
+        <title name="CCUSendSleep" value="200"/>
+        <title name="DayChange" value="0"/>
+        <title name="SyncIgnore" value="0"/>
+        <title name="OBUMatch" value="0"/>
+        <title name="OBUMode" value="0"/>
+    </title>
+    <title name="Channel1">
+        <title name="Camera">
+            <title name="IP" value="169.253.1"/>
+            <title name="SerialNumber" value="0"/>
+            <title name="Shutter" value="0"/>
+            <title name="Gain" value="0"/>
+            <title name="WBRed" value="0"/>
+            <title name="WBBlue" value="0"/>
+            <title name="Strobe_Polarity" value="0"/>
+        </title>
+        <title name="AutoIris">
+            <title name="Basic">
+                <title name="Use" value="True"/>
+                <title name="StandardBr" value="60"/>
+                <title name="BrRange" value="5"/>
+                <title name="BrInterval" value="1000"/>
+                <title name="BrAvgCount" value="5"/>
+                <title name="MaxShutter" value="1000.00"/>
+                <title name="MinShutter" value="50.00"/>
+                <title name="ShutterStep" value="10.00"/>
+                <title name="MaxGain" value="16.00"/>
+                <title name="MinGain" value="0.00"/>
+                <title name="GainStep" value="1.00"/>
+                <title name="Debug" value="False"/>
+            </title>
+            <title name="Reflection&amp;Back">
+                <title name="Reflection" value="True"/>
+                <title name="Backlight" value="True"/>
+                <title name="MaxBr" value="200"/>
+                <title name="MinBr" value="30"/>
+                <title name="BrStep" value="10"/>
+                <title name="MaxPlateBr" value="220"/>
+                <title name="MinPlateBr" value="30"/>
+                <title name="BrChangeCount" value="10"/>
+                <title name="Mode" value="3"/>
+            </title>
+            <title name="NoRecog">
+                <title name="Use" value="True"/>
+                <title name="MaxBr" value="200"/>
+                <title name="MinBr" value="30"/>
+            </title>
+        </title>
+        <title name="Light">
+            <title name="24H" value="False"/>
+            <title name="Shutter" value="1000.00"/>
+            <title name="OnGain" value="16.00"/>
+            <title name="OffGain" value="0.00"/>
+        </title>
+        <title name="LIC">
+            <title name="Port"/>
+        </title>
+        <title name="CCU">
+            <title name="Port"/>
+            <title name="VioREPTimeout" value="100"/>
+        </title>
+        <title name="TGMCU">
+            <title name="TGLane" value="1"/>
+        </title>
+        <title name="RECOGNITION">
+            <title name="PLATEAREA">
+                <title name="sx" value="0"/>
+                <title name="sy" value="0"/>
+                <title name="width" value="1920"/>
+                <title name="height" value="1080"/>
+            </title>
+            <title name="BRAREA">
+                <title name="sx" value="0"/>
+                <title name="sy" value="0"/>
+                <title name="width" value="1920"/>
+                <title name="height" value="1080"/>
+            </title>
+            <title name="VehiclePosition" value="0"/>
+            <title name="RecognitionMode" value="2"/>
+            <title name="RecogSeq" value="43526187"/>
+            <title name="RepeatTime" value="4"/>
+            <title name="RAWSAVE">
+                <title name="Type" value="0"/>
+                <title name="COUNT" value="0"/>
+            </title>
+        </title>
+    </title>
+    <title name="CENTER">
+        <title name="LIST0">
+            <title name="CenterName" value="center"/>
+            <title name="IP" value="192.168.10.75"/>
+            <title name="TCPPort" value="21"/>
+            <title name="AliveInterval" value="30"/>
+            <title name="ProtocolType" value="2"/>
+            <title name="FTPPort" value="21"/>
+            <title name="FTPUserID" value="headway"/>
+            <title name="FTPPassword" value="p00125"/>
+            <title name="FTPPath" value=""/>
+            <title name="FileNameSelect" value="0"/>
+            <title name="BackupPath" value="backup"/>
+            <title name="ImageBackupYesNo" value="False"/>
+        </title>
+        <title name="FTPRetry" value="0"/>
+    </title>
+    <title name="TGMCU">
+        <title name="Port"/>
+        <title name="Baudrate" value="38400"/>
+    </title>
+    <title name="Local">
+        <title name="LaneID" value="0"/>
+        <title name="ManagerID" value="0"/>
+        <title name="LandDirection" value="I"/>
+    </title>
+    <title name="DATABASE">
+        <title name="IP" value="127.0.0.1"/>
+        <title name="Port" value="3306"/>
+        <title name="Name" value="lprdb"/>
+        <title name="User" value="root"/>
+        <title name="Password" value="ubuntu!23"/>
+        <title name="ConnectionTimeout" value="5"/>
+        <title name="CommandTimeout" value="5"/>
+        <title name="StorageDuration" value="10"/>
+    </title>
+    <title name="LOG">
+        <title name="Level" value="6"/>
+        <title name="RecogSaveLog" value="0"/>
+    </title>
+</xml>

@@ -54,4 +54,6 @@ CONFIG += c++11
 RESOURCES += \
     images/cdtoparent.png \
     images/dir.png \
-    images/file.png
+    images/file.png \
+    images/red.png \
+    images/blue.png

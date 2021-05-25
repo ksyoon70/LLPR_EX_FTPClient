@@ -38,9 +38,18 @@ MainWindow::~MainWindow()
 void MainWindow::init()
 {
     pcfg = new config();
-    init_config();    
+    init_config();
 
-    plog = new Syslogger(this,"mainwindow",true,commonvalues::loglevel);
+    //log 디렉토리 생성
+    QString logpath = QApplication::applicationDirPath() + "/log";
+    QString dir = logpath;
+    QDir mdir(dir);
+    if(!mdir.exists())
+    {
+         mdir.mkpath(dir);
+    }
+
+    plog = new Syslogger(this,"mainwindow",true,commonvalues::loglevel,logpath);
     QString logstr = QString("Program Start(%1)").arg(Program_Version);
     plog->write(logstr,LOG_ERR); qDebug() << logstr;
 
@@ -76,8 +85,6 @@ void MainWindow::init()
     mp_tWorker->SetConfig(commonvalues::center_list.value(0),m_pftp);
     mp_Thread->start();
 
-    //init_mainthr();
-
     //QTimer init
     qTimer = new QTimer();
     connect(qTimer,SIGNAL(timeout()),this,SLOT(onTimer()));
@@ -111,9 +118,8 @@ void MainWindow::init_config()
 void MainWindow::applyconfig2common()
 {
     QString svalue;
-    bool bvalue;
     uint uivalue;
-    float fvalue;
+    bool bvalue;
 
     int i=0;
     QString title = "CENTER|LIST" + QString::number(i);
@@ -130,6 +136,33 @@ void MainWindow::applyconfig2common()
         if( ( svalue = pcfg->get(title,"FTPPassword") ) != NULL ) { centerinfo.password = svalue; }
         if( ( svalue = pcfg->get(title,"FTPPath") ) != NULL ) { centerinfo.ftpPath = svalue; }
         if( pcfg->getuint(title,"FileNameSelect",&uivalue)) { centerinfo.fileNameSelect = uivalue; }
+        if( ( svalue = pcfg->get(title,"BackupPath") ) != NULL )
+        {
+            centerinfo.backupPath = svalue;
+        }
+        else
+        {
+            pcfg->set(title,"BackupPath","backup");
+            centerinfo.backupPath = "backup";
+        }
+        if( ( pcfg->getbool(title,"ImageBackupYesNo",&bvalue) ) != false )
+        {
+            centerinfo.bimagebackup = bvalue;  //백업 여부
+        }
+        else
+        {
+            pcfg->set(title,"ImageBackupYesNo","True");
+            centerinfo.bimagebackup = true;
+        }
+
+        pcfg->save();
+
+
+        centerinfo.plbIcon = new QLabel();
+        QPixmap pixmap(QPixmap(":/images/red.png").scaledToHeight(ui->statusBar->height()/2));
+        centerinfo.plbIcon->setPixmap(pixmap);
+        centerinfo.plbIcon->setToolTip(tr("끊김"));
+        ui->statusBar->addWidget(centerinfo.plbIcon,Qt::AlignRight);
 
         centerinfo.plblstatus = new QLabel();
         centerinfo.plblstatus->setText( QString("%1:%2")
@@ -137,6 +170,9 @@ void MainWindow::applyconfig2common()
         centerinfo.plblstatus->setStyleSheet("QLabel { background-color : red; }");
 
         commonvalues::center_list.append(centerinfo);
+        ui->statusBar->addWidget(centerinfo.plblstatus);
+
+
 
         i++;
         title = "CENTER|LIST" + QString::number(i);
@@ -167,20 +203,6 @@ void MainWindow::checkcenterstatus()
 {
     int count = commonvalues::center_list.size();
 
-    if( commonvalues::center_count != count )
-    {
-        if(commonvalues::center_count < count)
-        {
-            for(int i=commonvalues::center_count; i < count; i++)
-            {
-                ui->statusBar->addWidget(commonvalues::center_list.value(i).plblstatus);
-            }
-
-        }
-        commonvalues::center_count = count;
-    }
-
-    count = commonvalues::center_list.size();
     for(int i = 0; i < count; i++)
     {
         commonvalues::center_list.value(i).plblstatus->setText( QString("%1:%2")
@@ -188,11 +210,17 @@ void MainWindow::checkcenterstatus()
         if(commonvalues::center_list.value(i).status )
         {
             commonvalues::center_list.value(i).plblstatus->setStyleSheet("QLabel { background-color : green; }");
+            QPixmap pixmap(QPixmap(":/images/blue.png").scaledToHeight(ui->statusBar->height()/2));
+            commonvalues::center_list.value(i).plbIcon->setPixmap(pixmap);
+            commonvalues::center_list.value(i).plbIcon->setToolTip(tr("연결"));
 
         }
         else
         {
             commonvalues::center_list.value(i).plblstatus->setStyleSheet("QLabel { background-color : red; }");
+            QPixmap pixmap(QPixmap(":/images/red.png").scaledToHeight(ui->statusBar->height()/2));
+            commonvalues::center_list.value(i).plbIcon->setPixmap(pixmap);
+            commonvalues::center_list.value(i).plbIcon->setToolTip(tr("연결"));
         }
     }
 }
@@ -253,27 +281,6 @@ void MainWindow::closeEvent(QCloseEvent *)
     if(pcenterdlg != NULL)pcenterdlg->close();
 
     qTimer->stop();
-}
-
-void MainWindow::on_connectButton_clicked()
-{
-    mp_tWorker = new ThreadWorker();
-    mp_Thread = new QThread();
-    mp_tWorker->moveToThread(mp_Thread);
-    m_pftp = new QFtp();
-    //설정값 저장
-    mp_tWorker->SetConfig(commonvalues::center_list.value(0),m_pftp);
-
-    QObject::connect(mp_Thread, SIGNAL(started()), mp_tWorker, SLOT(doWork()));
-    QObject::connect(mp_tWorker, SIGNAL(finished()), mp_Thread, SLOT(quit()));
-    QObject::connect(mp_tWorker, SIGNAL(finished()), this, SLOT(quitThread()));
-    QObject::connect(mp_tWorker, SIGNAL(finished()), mp_tWorker, SLOT(deleteLater()));
-    QObject::connect(mp_Thread, SIGNAL(finished()), mp_Thread, SLOT(deleteLater()));
-    QObject::connect(mp_tWorker, SIGNAL(logappend(QString)),this,SLOT(logappend(QString)));
-    QObject::connect(m_pftp, SIGNAL(listInfo(QUrlInfo)),this, SLOT(addToList(QUrlInfo)));
-    QObject::connect(mp_tWorker, SIGNAL(localFileUpdate(SendFileInfo *)), this, SLOT(localFileUpdate(SendFileInfo *)));
-    QObject::connect(m_pftp, SIGNAL(dataTransferProgress(qint64 ,qint64)),this, SLOT(loadProgress(qint64 ,qint64)));
-    mp_Thread->start();
 }
 
 void MainWindow::quitThread()

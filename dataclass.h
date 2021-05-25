@@ -31,6 +31,7 @@ public:
     QString userID;
     QString password;
     QString ftpPath;
+    QString backupPath;
     enum FileNameType
     {
         H_Char = 0x00,
@@ -39,7 +40,9 @@ public:
     int fileNameSelect; //0=H , 1-X
 
     bool status;
+    QLabel *plbIcon;
     QLabel *plblstatus;
+    bool bimagebackup;      ///이미지 백업 여부
 };
 
 

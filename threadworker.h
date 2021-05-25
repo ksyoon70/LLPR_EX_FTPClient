@@ -82,7 +82,7 @@ public:
     void Connect2FTP();
     void SetConfig(CenterInfo configinfo,QFtp *pFtp);
     void DeleteFile(QString filepath);
-
+    void CopyFile(SendFileInfo data);
     void RefreshLocalFileList();
 };
 

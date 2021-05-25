@@ -36,8 +36,6 @@ private slots:
 
     void onTimer();
     void closeEvent(QCloseEvent *);
-
-    void on_connectButton_clicked();
     void quitThread();
 #if 1
     void ftpCommandFinished(int id,bool error);
@@ -63,6 +61,8 @@ private:
     ThreadWorker *mp_tWorker;
     QFtp *m_pftp;
     QHash<QString, bool> isDirectory;
+
+    QString logpath;  //로그를 저장하는 패스
 
     int m_maxlogline;
 };

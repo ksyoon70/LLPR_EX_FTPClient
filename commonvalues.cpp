@@ -1,5 +1,5 @@
 #include "commonvalues.h"
-
+#include <syslog.h>
 commonvalues::commonvalues(QObject *parent) : QObject(parent)
 {
 
@@ -10,4 +10,4 @@ QList<CenterInfo> commonvalues::center_list;
 QList<QThread *> commonvalues::clientlist;
 int commonvalues::ftpretry = 1;
 
-int commonvalues::loglevel = 0;
+int commonvalues::loglevel = LOG_EMERG;
