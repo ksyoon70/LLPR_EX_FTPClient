@@ -366,6 +366,7 @@ void MainWindow::ftpStatusChanged(int state)
             ui->remoteFileList->setEnabled(false);
             ui->remoteFileList->clear();
             ui->progressBar->setValue(0);
+            commonvalues::center_list[0].status = false;
 
         }
         break;
@@ -377,6 +378,7 @@ void MainWindow::ftpStatusChanged(int state)
         break;
     case QFtp::Connected:
         ui->remoteFileList->setEnabled(true);
+        commonvalues::center_list[0].status = true;
         break;
     case QFtp::Close:
         //CancelConnection();
