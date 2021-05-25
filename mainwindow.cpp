@@ -401,6 +401,7 @@ void MainWindow::initFtpReqHandler(QString str)
     QObject::connect(mp_tWorker, SIGNAL(localFileUpdate(SendFileInfo *)), this, SLOT(localFileUpdate(SendFileInfo *)));
     QObject::connect(m_pftp, SIGNAL(dataTransferProgress(qint64 ,qint64)),this, SLOT(loadProgress(qint64 ,qint64)));
     mp_tWorker->SetConfig(commonvalues::center_list.value(0),m_pftp);
+    commonvalues::center_list[0].status = false;
 }
 
 void MainWindow::addToList(const QUrlInfo &urlInfo)
