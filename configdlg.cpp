@@ -49,7 +49,7 @@ void configdlg::on_btnSetdata_clicked()
     }
     else
     {
-        qDebug() << "Error Set value ";
+        //qDebug() << "Error Set value ";
     }
 
 

@@ -180,11 +180,11 @@ void DeleteWorker::DeleteDir(QString filepath)
     }
     catch(exception ex)
     {
-        qDebug() << ex.what();
+        //qDebug() << ex.what();
     }
     catch( ... )
     {
-        qDebug() << QString("DeleteFile exception");
+        //qDebug() << QString("DeleteFile exception");
     }
 }
 

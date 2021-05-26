@@ -90,7 +90,7 @@ bool config::load()
     }
     catch( exception ex)
     {
-        qDebug() << ex.what();
+        //qDebug() << ex.what();
         return false;
     }
     return true;
@@ -110,7 +110,7 @@ bool config::save()
     }
     catch (exception ex)
     {
-        qDebug() << ex.what();
+        //qDebug() << ex.what();
         return false;
     }
     return true;

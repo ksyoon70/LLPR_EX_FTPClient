@@ -509,7 +509,7 @@ void MainWindow::ftpCommandFinished(int id, bool error)
         if(error)
         {
             mp_tWorker->m_iFTPTrans = -1; //fail
-            qDebug() << mp_tWorker->m_pftp->errorString();
+            //qDebug() << mp_tWorker->m_pftp->errorString();
         }
         else
             mp_tWorker->m_iFTPTrans = 1; //success
@@ -521,7 +521,7 @@ void MainWindow::ftpCommandFinished(int id, bool error)
         if(error)
         {
             mp_tWorker->m_iFTPRename = -1; //fail
-            qDebug() << mp_tWorker->m_pftp->errorString();
+            //qDebug() << mp_tWorker->m_pftp->errorString();
             //CancelConnection();
         }
         else
@@ -531,7 +531,7 @@ void MainWindow::ftpCommandFinished(int id, bool error)
     {
         if(error)
         {
-            qDebug() << mp_tWorker->m_pftp->errorString();
+            //qDebug() << mp_tWorker->m_pftp->errorString();
         }
 
         //CancelConnection();
@@ -541,7 +541,7 @@ void MainWindow::ftpCommandFinished(int id, bool error)
     {
         if(error)
         {
-            qDebug() << mp_tWorker->m_pftp->errorString();
+            //qDebug() << mp_tWorker->m_pftp->errorString();
             //CancelConnection();
         }
 
@@ -550,7 +550,7 @@ void MainWindow::ftpCommandFinished(int id, bool error)
     {
         if(error)
         {
-            qDebug() << mp_tWorker->m_pftp->errorString();
+            //qDebug() << mp_tWorker->m_pftp->errorString();
             //CancelConnection();
         }
 

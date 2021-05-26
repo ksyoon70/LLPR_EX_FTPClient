@@ -152,7 +152,7 @@ void ThreadWorker::doWork()
                         }
                         catch (exception ex)
                         {
-                            qDebug() << ex.what();
+                            //qDebug() << ex.what();
                             QString logstr = QString("FTP파일 크기 에러(0)-->삭제: 예외처리 %1").arg(ex.what());
                             log->write(logstr,LOG_NOTICE);
                         }
@@ -272,7 +272,7 @@ void ThreadWorker::doWork()
         }
         catch (exception ex)
         {
-            qDebug() << ex.what();
+            //qDebug() << ex.what();
             QString logstr = QString("ThreadWorker 예외처리 %1").arg(ex.what());
             log->write(logstr,LOG_NOTICE);
         }
@@ -303,7 +303,7 @@ void ThreadWorker::ScanSendDataFiles()
     }
     catch( ... )
     {
-        qDebug() << QString("ScanSendDataFiles-Directory Check  Exception");
+        //qDebug() << QString("ScanSendDataFiles-Directory Check  Exception");
         return;
     }
 
@@ -318,7 +318,7 @@ void ThreadWorker::ScanSendDataFiles()
     }
     catch( ... )
     {
-        qDebug() << QString("ScanSendDataFiles-Search Entryile Exception");
+        //qDebug() << QString("ScanSendDataFiles-Search Entryile Exception");
         return;
     }
 
@@ -329,13 +329,6 @@ void ThreadWorker::ScanSendDataFiles()
         if( info.ParseFilepath(fpath))
         {
             sendFileList.AddFile(info);
-            /*if( sendFileList.AddFile(info))
-            {
-                logstr = QString("FTP전송 데이터 추가 : %1").arg(fpath);
-                log->write(logstr,LOG_NOTICE);  qDebug() <<  logstr;
-
-            }
-            else DeleteFile(fpath);*/
         }
         else
             DeleteFile(fpath);
@@ -420,7 +413,7 @@ void ThreadWorker::DeleteFile(QString filepath)
     }
     catch( ... )
     {
-        qDebug() << QString("DeleteFile exception");
+        //qDebug() << QString("DeleteFile exception");
     }
 }
 
@@ -461,15 +454,15 @@ void ThreadWorker::CopyFile(SendFileInfo data)
          file.copy(newFilePath);
 
     }
-    /*catch(exception ex)
+    catch(exception ex)
     {
-        qDebug() << ex.what();
+        //qDebug() << ex.what();
         QString logstr = QString("FTP파일 크기 에러(0)-->삭제: 예외처리 %1").arg(ex.what());
         log->write(logstr,LOG_NOTICE);
-    }*/
+    }
     catch( ... )
     {
-        qDebug() << QString("CopyFile Expection");
+        //qDebug() << QString("CopyFile Expection");
         log->write(QString("CopyFile Expection"),LOG_NOTICE);
     }
 }
@@ -487,116 +480,6 @@ void ThreadWorker::RefreshLocalFileList()
     }
 
 }
-
-#if 0
-void ThreadWorker::ftpCommandFinished(int id, bool error)
-{
-    //QString logstr;
-    if (m_pftp->currentCommand() == QFtp::Put )
-    {
-        if(error)
-        {
-            m_iFTPTrans = -1; //fail
-            qDebug() << m_pftp->errorString();
-            //logstr = QString("Push error");
-            //emit logappend(logstr);
-            CancelConnection();
-        }
-        else
-        {
-            //logstr = QString("Push ok");
-            //emit logappend(logstr);
-            m_iFTPTrans = 1; //success
-        }
-    }
-    else if(m_pftp->currentCommand() == QFtp::Rename )
-    {
-        if(error)
-        {
-            m_iFTPRename = -1; //fail
-            qDebug() << m_pftp->errorString();
-            //logstr = QString("rename error");
-            //emit logappend(logstr);
-            CancelConnection();
-        }
-        else
-        {
-            //logstr = QString("rename ok");
-            //emit logappend(logstr);
-            m_iFTPRename = 1; //success
-        }
-    }
-    else if(m_pftp->currentCommand() == QFtp::Close )
-    {
-        if(error)
-        {
-            qDebug() << m_pftp->errorString();
-        }
-
-        CancelConnection();
-
-    }
-    else if(m_pftp->currentCommand() == QFtp::ConnectToHost )
-    {
-        if(error)
-        {
-            qDebug() << m_pftp->errorString();
-            CancelConnection();
-        }
-
-    }
-    else if(m_pftp->currentCommand() == QFtp::Login )
-    {
-        if(error)
-        {
-            qDebug() << m_pftp->errorString();
-            CancelConnection();
-        }
-
-    }
-
-}
-
-void ThreadWorker::ftpStatusChanged(int state)
-{
-    //QString logstr;
-    switch(state){
-    case QFtp::Unconnected:
-        {
-            CenterInfo config = commonvalues::center_list.value(0);
-            //logstr = QString("서버[%1] 연결 끊김").arg(config.ip.trimmed());
-            //emit logappend(logstr);
-            //CancelConnection();
-            //InitConnection();
-            //Connect2FTP();
-        }
-        break;
-    case QFtp::HostLookup:
-        lastHostlookup = QDateTime::currentDateTime().addDays(-1);
-        //logstr = QString("HostLookup");
-        //emit logappend(logstr);
-        break;
-    case QFtp::Connecting:
-        lastHostlookup = QDateTime::currentDateTime().addDays(-1);
-        //logstr = QString("Connecting");
-        //emit logappend(logstr);
-        break;
-    case QFtp::Connected:
-        //logstr = QString("Connected");
-        //emit logappend(logstr);
-        break;
-    case QFtp::Close:
-        //logstr = QString("CLose");
-        //emit logappend(logstr);
-        //CancelConnection();
-        //InitConnection();
-        //Connect2FTP();
-        break;
-    default:
-        break;
-    }
-}
-#endif
 bool SendFileInfo::SaveFile(QString path, QString fname, QByteArray filedata)
 {
     try
@@ -635,7 +518,7 @@ bool SendFileInfo::SaveFile(QString path, QString fname, QByteArray filedata)
     }
     catch ( ... )
     {
-        qDebug() << QString("SaveFile Expection : %1/%2").arg(path).arg(fname);
+        //qDebug() << QString("SaveFile Expection : %1/%2").arg(path).arg(fname);
         return false;
     }
     return true;
@@ -661,7 +544,7 @@ bool SendFileInfo::ParseFilepath(QString _filepath)
     }
     catch (...)
     {
-        qDebug() << QString("ParseFilepath Expection : %1").arg(filepath);
+        //qDebug() << QString("ParseFilepath Expection : %1").arg(filepath);
         return false;
     }
     return true;
@@ -678,7 +561,7 @@ bool SendFileInfoList::AddFile(SendFileInfo data)
     }
     catch( ... )
     {
-        qDebug() << QString("AddFile Expection");
+        //qDebug() << QString("AddFile Expection");
         brtn = false;
     }
     mutex.unlock();
@@ -718,7 +601,7 @@ void SendFileInfoList::RemoveFirstFile(SendFileInfo data)
     }
     catch( ... )
     {
-        qDebug() << QString("RemoveFile Expection");
+        //qDebug() << QString("RemoveFile Expection");
     }
     mutex.unlock();
 }
