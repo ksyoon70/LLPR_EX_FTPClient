@@ -25,13 +25,19 @@ MainWindow::MainWindow(QWidget *parent) :
 
     ui->progressBar->setValue(0);
 
+    NowTime = QDate::currentDate();
+
     init();
 }
 
 MainWindow::~MainWindow()
-{    
-    delete qTimer;
+{
 
+    if(mp_dWorker)
+    {
+        mp_dWorker->Stop();
+    }
+    delete qTimer;
     delete ui;
 }
 
@@ -53,38 +59,52 @@ void MainWindow::init()
     QString logstr = QString("Program Start(%1)").arg(Program_Version);
     plog->write(logstr,LOG_ERR); qDebug() << logstr;
 
-
-
-    //pmainthr = new mainthread(plog);
-
     pcenterdlg = new CenterDlg(pcfg);
     pconfigdlg = new configdlg(pcfg);
 
     mp_tWorker = new ThreadWorker();
-    mp_Thread = new QThread();
+    mp_wThread = new QThread();
     m_pftp = new QFtp();
-    mp_tWorker->moveToThread(mp_Thread);
+    mp_tWorker->moveToThread(mp_wThread);
+
+
+    //삭제 쓰레드 생성
+#if 1
+    mp_dWorker = new DeleteWorker();
+    mp_dThread = new QThread();
+    mp_dWorker->SetConfig(&commonvalues::center_list[0]);
+    mp_dWorker->moveToThread(mp_dThread);
+#endif
     //설정값 저장
 
 
-    QObject::connect(mp_Thread, SIGNAL(started()), mp_tWorker, SLOT(doWork()));
-    QObject::connect(mp_tWorker, SIGNAL(finished()), mp_Thread, SLOT(quit()));
-    QObject::connect(mp_tWorker, SIGNAL(finished()), this, SLOT(quitThread()));
+    QObject::connect(mp_wThread, SIGNAL(started()), mp_tWorker, SLOT(doWork()));
+    QObject::connect(mp_wThread, SIGNAL(finished()), mp_wThread, SLOT(deleteLater()));
+    QObject::connect(mp_tWorker, SIGNAL(finished()), mp_wThread, SLOT(quit()));
+    QObject::connect(mp_tWorker, SIGNAL(finished()), this, SLOT(quitWThread()));
     QObject::connect(mp_tWorker, SIGNAL(finished()), mp_tWorker, SLOT(deleteLater()));
-    QObject::connect(mp_Thread, SIGNAL(finished()), mp_Thread, SLOT(deleteLater()));
     QObject::connect(mp_tWorker, SIGNAL(logappend(QString)),this,SLOT(logappend(QString)));
+    QObject::connect(mp_tWorker, SIGNAL(localFileUpdate(SendFileInfo *)), this, SLOT(localFileUpdate(SendFileInfo *)));
+    QObject::connect(mp_tWorker, SIGNAL(initFtpReq(QString)),this, SLOT(initFtpReqHandler(QString)));
     QObject::connect(m_pftp, SIGNAL(commandFinished(int,bool)),this, SLOT(ftpCommandFinished(int,bool)));
     QObject::connect(m_pftp, SIGNAL(stateChanged(int)),this, SLOT(ftpStatusChanged(int)));
-    QObject::connect(mp_tWorker, SIGNAL(initFtpReq(QString)),this, SLOT(initFtpReqHandler(QString)));
     QObject::connect(m_pftp, SIGNAL(listInfo(QUrlInfo)),this, SLOT(addToList(QUrlInfo)));
-    QObject::connect(mp_tWorker, SIGNAL(localFileUpdate(SendFileInfo *)), this, SLOT(localFileUpdate(SendFileInfo *)));
     QObject::connect(m_pftp, SIGNAL(dataTransferProgress(qint64 ,qint64)),this, SLOT(loadProgress(qint64 ,qint64)));
-
+#if 1
+    QObject::connect(mp_dThread, SIGNAL(started()), mp_dWorker, SLOT(doWork()));
+    QObject::connect(mp_dThread, SIGNAL(finished()), mp_dThread, SLOT(deleteLater()));
+    QObject::connect(mp_dWorker, SIGNAL(finished()), mp_dThread, SLOT(quit()));
+    QObject::connect(mp_dWorker, SIGNAL(finished()), this, SLOT(quitDThread()));
+    QObject::connect(mp_dWorker, SIGNAL(finished()), mp_dWorker, SLOT(deleteLater()));
+#endif
     initaction();
 
     mp_tWorker->SetConfig(commonvalues::center_list.value(0),m_pftp);
-    mp_Thread->start();
 
+    mp_wThread->start();
+#if 1
+    mp_dThread->start();
+#endif
     //QTimer init
     qTimer = new QTimer();
     connect(qTimer,SIGNAL(timeout()),this,SLOT(onTimer()));
@@ -103,7 +123,7 @@ void MainWindow::init_config()
     //check config file exists
     if( !pcfg->check())
     {
-
+        MakeDefaultConfig();
     }
     else
     {
@@ -126,16 +146,96 @@ void MainWindow::applyconfig2common()
     while( ( svalue = pcfg->get(title,"IP") ) != NULL)
     {
         CenterInfo centerinfo;
-        if( ( svalue = pcfg->get(title,"CenterName") ) != NULL ) { centerinfo.centername = svalue; }
-        if( ( svalue = pcfg->get(title,"IP") ) != NULL ) { centerinfo.ip = svalue; }
-        if( pcfg->getuint(title,"TCPPort",&uivalue)) { centerinfo.tcpport = uivalue; }
-        if( pcfg->getuint(title,"AliveInterval",&uivalue)) { centerinfo.connectioninterval = uivalue; }
-        if( pcfg->getuint(title,"ProtocolType",&uivalue)) { centerinfo.protocol_type = uivalue; }
-        if( pcfg->getuint(title,"FTPPort",&uivalue)) { centerinfo.ftpport = uivalue; }
-        if( ( svalue = pcfg->get(title,"FTPUserID") ) != NULL ) { centerinfo.userID = svalue; }
-        if( ( svalue = pcfg->get(title,"FTPPassword") ) != NULL ) { centerinfo.password = svalue; }
-        if( ( svalue = pcfg->get(title,"FTPPath") ) != NULL ) { centerinfo.ftpPath = svalue; }
-        if( pcfg->getuint(title,"FileNameSelect",&uivalue)) { centerinfo.fileNameSelect = uivalue; }
+        if( ( svalue = pcfg->get(title,"CenterName") ) != NULL )
+        {
+            centerinfo.centername = svalue;
+        }
+        else
+        {
+            pcfg->set(title,"CenterName","center");
+            centerinfo.centername = "center";
+        }
+        if( ( svalue = pcfg->get(title,"IP") ) != NULL )
+        {
+            centerinfo.ip = svalue;
+        }
+        else
+        {
+            pcfg->set(title,"IP","192.168.10.73");
+            centerinfo.ip = "192.168.10.73";
+        }
+        if( pcfg->getuint(title,"TCPPort",&uivalue))
+        {
+            centerinfo.tcpport = uivalue;
+        }
+        else
+        {
+            pcfg->set(title,"TCPPort","9111");
+            centerinfo.tcpport = 9111;
+        }
+        if( pcfg->getuint(title,"AliveInterval",&uivalue))
+        {
+            centerinfo.connectioninterval = uivalue;
+        }
+        else
+        {
+            pcfg->set(title,"AliveInterval","30");
+            centerinfo.connectioninterval = 30;
+        }
+        if( pcfg->getuint(title,"ProtocolType",&uivalue))
+        {
+            centerinfo.protocol_type = uivalue;
+        }
+        else
+        {
+            pcfg->set(title,"ProtocolType","2");
+            centerinfo.protocol_type = 2;
+        }
+        if( pcfg->getuint(title,"FTPPort",&uivalue))
+        {
+            centerinfo.ftpport = uivalue;
+        }
+        else
+        {
+            pcfg->set(title,"FTPPort","21");
+            centerinfo.ftpport = 21;
+        }
+        if( ( svalue = pcfg->get(title,"FTPUserID") ) != NULL )
+        {
+            centerinfo.userID = svalue;
+        }
+        else
+        {
+            pcfg->set(title,"FTPUserID","tes");
+            centerinfo.userID = "tes";
+        }
+        if( ( svalue = pcfg->get(title,"FTPPassword") ) != NULL )
+        {
+            centerinfo.password = svalue;
+        }
+        else
+        {
+            pcfg->set(title,"FTPPassword","tes");
+            centerinfo.password = "tes";
+        }
+        if( ( svalue = pcfg->get(title,"FTPPath") ) != NULL )
+        {
+            centerinfo.ftpPath = svalue;
+        }
+        else
+        {
+            pcfg->set(title,"FTPPath","");
+            centerinfo.ftpPath = "";
+        }
+        if( pcfg->getuint(title,"FileNameSelect",&uivalue))
+        {
+            centerinfo.fileNameSelect = uivalue;
+        }
+        else
+        {
+            pcfg->set(title,"FileNameSelect","0");
+            centerinfo.fileNameSelect = 0;
+        }
         if( ( svalue = pcfg->get(title,"BackupPath") ) != NULL )
         {
             centerinfo.backupPath = svalue;
@@ -154,6 +254,36 @@ void MainWindow::applyconfig2common()
             pcfg->set(title,"ImageBackupYesNo","True");
             centerinfo.bimagebackup = true;
         }
+        if( ( pcfg->getuint(title,"DaysToStore",&uivalue)) != false )
+        {
+            centerinfo.daysToStore = uivalue;  //백업 여부
+        }
+        else
+        {
+            pcfg->set(title,"DaysToStore","10");
+            centerinfo.daysToStore = 10;
+        }
+        if( pcfg->getuint("CENTER","FTPRetry",&uivalue))
+        {
+            commonvalues::ftpretry = uivalue;
+        }
+        else
+        {
+            pcfg->set("CENTER","FTPRetry","0");
+            commonvalues::ftpretry = 0;
+        }
+
+
+      /*       Log Level value             */
+       if( pcfg->getuint("LOG","Level",&uivalue))
+       {
+           commonvalues::loglevel = uivalue;
+       }
+       else
+       {
+           pcfg->set("CENTER","Level","0");
+           commonvalues::loglevel = LOG_EMERG;
+       }
 
         pcfg->save();
 
@@ -178,12 +308,81 @@ void MainWindow::applyconfig2common()
         title = "CENTER|LIST" + QString::number(i);
     }
 
-    if( pcfg->getuint("CENTER","FTPRetry",&uivalue)) { commonvalues::ftpretry = uivalue; }
 
 
-  /*       Log Level value             */
-   if( pcfg->getuint("LOG","Level",&uivalue)) { commonvalues::loglevel = uivalue; }
+}
 
+void MainWindow::MakeDefaultConfig()
+{
+
+    int i=0;
+
+    pcfg->create();
+    pcfg->load();
+
+    QString title = "CENTER|LIST" + QString::number(i);
+
+    CenterInfo centerinfo;
+    pcfg->set(title,"CenterName","center");
+    centerinfo.centername = "center";
+
+    pcfg->set(title,"IP","192.168.10.73");
+    centerinfo.ip = "192.168.10.73";
+
+    pcfg->set(title,"TCPPort","9111");
+    centerinfo.tcpport = 9111;
+
+    pcfg->set(title,"AliveInterval","30");
+    centerinfo.connectioninterval = 30;
+
+    pcfg->set(title,"ProtocolType","2");
+    centerinfo.protocol_type = 2;
+
+    pcfg->set(title,"FTPPort","21");
+    centerinfo.ftpport = 21;
+
+    pcfg->set(title,"FTPUserID","tes");
+    centerinfo.userID = "tes";
+
+    pcfg->set(title,"FTPPassword","tes");
+    centerinfo.password = "tes";
+
+    pcfg->set(title,"FTPPath","");
+    centerinfo.ftpPath = "";
+
+    pcfg->set(title,"FileNameSelect","0");
+    centerinfo.fileNameSelect = 0;
+
+    pcfg->set(title,"BackupPath","backup");
+    centerinfo.backupPath = "backup";
+
+    pcfg->set(title,"ImageBackupYesNo","True");
+    centerinfo.bimagebackup = true;
+
+    pcfg->set(title,"DaysToStore","10");
+    centerinfo.daysToStore = 10;
+
+   // pcfg->set("CENTER","FTPRetry","0");
+    commonvalues::ftpretry = 0;
+
+    //pcfg->set("CENTER","Level","0");
+    commonvalues::loglevel = LOG_EMERG;
+
+    pcfg->save();
+
+    centerinfo.plbIcon = new QLabel();
+    QPixmap pixmap(QPixmap(":/images/red.png").scaledToHeight(ui->statusBar->height()/2));
+    centerinfo.plbIcon->setPixmap(pixmap);
+    centerinfo.plbIcon->setToolTip(tr("끊김"));
+    ui->statusBar->addWidget(centerinfo.plbIcon,Qt::AlignRight);
+
+    centerinfo.plblstatus = new QLabel();
+    centerinfo.plblstatus->setText( QString("%1:%2")
+                .arg(centerinfo.ip).arg(centerinfo.ftpport));
+    centerinfo.plblstatus->setStyleSheet("QLabel { background-color : red; }");
+
+    commonvalues::center_list.append(centerinfo);
+    ui->statusBar->addWidget(centerinfo.plblstatus);
 }
 
 bool MainWindow::loglinecheck()
@@ -271,6 +470,14 @@ void MainWindow::onTimer()
     {
         //status bar -> display center connection status
         checkcenterstatus();
+        OldTime =  NowTime;
+        NowTime = QDate::currentDate();
+        if(OldTime.daysTo(NowTime) >= 1)
+        {
+            //날짜가 바뀌면 파일을 지운다.
+            mp_dWorker->doRun();
+        }
+
     }
     m_mseccount++;
 }
@@ -283,11 +490,16 @@ void MainWindow::closeEvent(QCloseEvent *)
     qTimer->stop();
 }
 
-void MainWindow::quitThread()
+void MainWindow::quitWThread()
 {
-    mp_Thread = nullptr;
+    mp_wThread = nullptr;
     mp_tWorker = nullptr;
-    //m_pftp = nullptr;
+}
+
+void MainWindow::quitDThread()
+{
+    mp_dThread = nullptr;
+    mp_dWorker = nullptr;
 }
 #if 1
 void MainWindow::ftpCommandFinished(int id, bool error)

@@ -43,6 +43,7 @@ public:
     QLabel *plbIcon;
     QLabel *plblstatus;
     bool bimagebackup;      ///이미지 백업 여부
+    uint daysToStore;        ///저장기간
 };
 
 

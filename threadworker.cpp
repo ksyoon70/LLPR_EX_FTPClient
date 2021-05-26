@@ -34,7 +34,7 @@ ThreadWorker::ThreadWorker(QObject *parent) : QObject(parent)
     }
 
 
-    log = new Syslogger(this,"mainwindow",true,commonvalues::loglevel,logpath);
+    log = new Syslogger(this,"ThreadWorker",true,commonvalues::loglevel,logpath);
 
     thread_run = true;
 
@@ -76,6 +76,7 @@ void ThreadWorker::doWork()
 
             if(cur_state == QFtp::Unconnected)
             {
+                QThread::msleep(5000);
                 QString logstr = QString("서버[%1] 연결 시도...").arg(config.ip.trimmed());
                 log->write(logstr,LOG_NOTICE); qDebug() << logstr;
                 emit logappend(logstr);
@@ -365,8 +366,6 @@ void ThreadWorker::Connect2FTP()
         if (!path.isNull() && !path.isEmpty() )
             m_pftp->cd(path);
     }
-
-    QThread::msleep(2000);
 }
 
 void ThreadWorker::SetConfig(CenterInfo configinfo,QFtp *pFtp)

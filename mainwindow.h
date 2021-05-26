@@ -8,7 +8,8 @@
 #include "syslogger.h"
 #include "QThread"
 #include "threadworker.h"
-
+#include "deleteworker.h"
+#include <QDate>
 namespace Ui {
 class MainWindow;
 }
@@ -24,6 +25,7 @@ public:
     void initaction();
     void init_config();
     void applyconfig2common();
+    void MakeDefaultConfig();
     void init_mainthr();
     bool loglinecheck();
     void checkcenterstatus();
@@ -36,15 +38,16 @@ private slots:
 
     void onTimer();
     void closeEvent(QCloseEvent *);
-    void quitThread();
-#if 1
+    void quitWThread();
+    void quitDThread();
+
     void ftpCommandFinished(int id,bool error);
     void ftpStatusChanged(int state);
     void initFtpReqHandler(QString str);
     void addToList(const QUrlInfo &urlInfo);
     void localFileUpdate(SendFileInfo *pItem);
     void loadProgress(qint64 bytesSent,qint64 bytesTotal);
-#endif
+
 private:
 #define Program_Version  "LLPR_EX_FTPClient v1.1.0 (date: 2021/05/24)"
     Ui::MainWindow *ui;
@@ -57,7 +60,7 @@ private:
     //class
     config *pcfg;
     Syslogger *plog;
-    QThread *mp_Thread;
+    QThread *mp_wThread;
     ThreadWorker *mp_tWorker;
     QFtp *m_pftp;
     QHash<QString, bool> isDirectory;
@@ -65,6 +68,11 @@ private:
     QString logpath;  //로그를 저장하는 패스
 
     int m_maxlogline;
+
+    DeleteWorker *mp_dWorker;
+    QThread *mp_dThread;
+    QDate NowTime;
+    QDate OldTime;
 };
 
 #endif // MAINWINDOW_H

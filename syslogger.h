@@ -37,7 +37,7 @@ public:
 private:
     QString m_ident;
     QString base_path;          //로그를 저장하는 기본 폴더
-    QMutex mutex;
+
 
 signals:
 

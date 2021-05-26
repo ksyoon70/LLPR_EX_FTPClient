@@ -24,6 +24,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 
 SOURCES += \
+    deleteworker.cpp \
         main.cpp \
         mainwindow.cpp \
     configdlg.cpp \
@@ -34,6 +35,7 @@ SOURCES += \
     threadworker.cpp
 
 HEADERS += \
+    deleteworker.h \
         mainwindow.h \
     configdlg.h \
     config.h \
@@ -56,4 +58,10 @@ RESOURCES += \
     images/dir.png \
     images/file.png \
     images/red.png \
-    images/blue.png
+    images/blue.png \
+    icons/ftp-icon.png
+
+#  이방법은 윈도우에서 아이콘을 세팅 할때
+#RC_ICONS += \
+#    icons/ftp-icon.ico \
+#    icons/ftp-icon.png

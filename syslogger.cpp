@@ -1,5 +1,6 @@
 #include "syslogger.h"
 
+QMutex mutex;
 void Syslogger::GetCurrentDate(char *return_Date)
 {
   if(return_Date == NULL)

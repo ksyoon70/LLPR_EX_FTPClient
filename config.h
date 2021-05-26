@@ -27,6 +27,7 @@ public:
     bool create();
     bool load();
     bool save();
+    bool createNew();
     QString get(QString title,QString name);
     bool getuint(QString title, QString name,uint *value);
     bool getbool(QString title, QString name,bool *value);
