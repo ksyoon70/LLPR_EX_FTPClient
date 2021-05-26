@@ -178,6 +178,10 @@ void DeleteWorker::DeleteDir(QString filepath)
         QDir dir(filepath);
         dir.removeRecursively();  //디렉토리와 그 하위 파일 및 디렉토리를 삭제하는 함수 Qt5 이상에서만 지원 됨. Qt4에서는 구현하는 함수가 필요
     }
+    catch(exception ex)
+    {
+        qDebug() << ex.what();
+    }
     catch( ... )
     {
         qDebug() << QString("DeleteFile exception");

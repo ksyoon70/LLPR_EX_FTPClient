@@ -54,200 +54,237 @@ void ThreadWorker::doWork()
 
     while(thread_run)
     {
-        lastFilename = curFilename;
-        ScanSendDataFiles();
-        SendFileInfo nowFileInfo =  sendFileList.GetFirstFile();
-        curFilename = QString(nowFileInfo.filename);
-        if(QString::compare(lastFilename,curFilename) != 0)
-        {
-            RefreshLocalFileList();
-        }
 
-        //check connection  && connect
-        if(m_pftp != nullptr)
-        {
-            last_state =  cur_state;
-            cur_state = m_pftp->state();
-
-            if(cur_state != QFtp::HostLookup || cur_state != QFtp::Connecting)
+        try {
+            lastFilename = curFilename;
+            ScanSendDataFiles();
+            SendFileInfo nowFileInfo =  sendFileList.GetFirstFile();
+            curFilename = QString(nowFileInfo.filename);
+            if(QString::compare(lastFilename,curFilename) != 0)
             {
-                lastHostlookup = QDateTime::currentDateTime().addDays(-1);
+                RefreshLocalFileList();
             }
 
-            if(cur_state == QFtp::Unconnected)
+            //check connection  && connect
+            if(m_pftp != nullptr)
             {
-                QThread::msleep(5000);
-                QString logstr = QString("서버[%1] 연결 시도...").arg(config.ip.trimmed());
-                log->write(logstr,LOG_NOTICE); qDebug() << logstr;
-                emit logappend(logstr);
-                Connect2FTP();
+                last_state =  cur_state;
+                cur_state = m_pftp->state();
 
-            }
-            else if(cur_state == QFtp::Connecting)
-            {
-                if(lastHostlookup.secsTo(QDateTime::currentDateTime()) >5)
+                if(cur_state != QFtp::HostLookup || cur_state != QFtp::Connecting)
                 {
-                    emit initFtpReq(QString("서버[%1] 연결 타임아웃...").arg(config.ip.trimmed()));
+                    lastHostlookup = QDateTime::currentDateTime().addDays(-1);
                 }
-            }
-            else if(cur_state == QFtp::HostLookup)
-            {
-                if(lastHostlookup.secsTo(QDateTime::currentDateTime()) >5)
+
+                if(cur_state == QFtp::Unconnected)
                 {
-                    emit initFtpReq(QString("서버[%1] HostLookup 타임아웃...").arg(config.ip.trimmed()));
+                    QThread::msleep(5000);
+                    QString logstr = QString("서버[%1] 연결 시도...").arg(config.ip.trimmed());
+                    log->write(logstr,LOG_NOTICE); //qDebug() << logstr;
+                    emit logappend(logstr);
+                    Connect2FTP();
+
+                }
+                else if(cur_state == QFtp::Connecting)
+                {
+                    if(lastHostlookup.secsTo(QDateTime::currentDateTime()) >5)
+                    {
+                        emit initFtpReq(QString("서버[%1] 연결 타임아웃...").arg(config.ip.trimmed()));
+                    }
+                }
+                else if(cur_state == QFtp::HostLookup)
+                {
+                    if(lastHostlookup.secsTo(QDateTime::currentDateTime()) >5)
+                    {
+                        emit initFtpReq(QString("서버[%1] HostLookup 타임아웃...").arg(config.ip.trimmed()));
+                    }
+                }
+                else
+                {
+                    if(last_state == QFtp::Unconnected)
+                    {
+                        QString logstr = QString("서버[%1] 연결 성공").arg(config.ip.trimmed());
+                        log->write(logstr,LOG_NOTICE); //qDebug() << logstr;
+                        emit logappend(logstr);
+                    }
+
+                    if(sendFileList.Count() == 0)
+                    {
+                        QThread::msleep(1000);
+                        continue;
+                    }
+
+                    SendFileInfo sendFile = sendFileList.GetFirstFile();
+                    if(sendFile.filename.isNull() || sendFile.filename.isEmpty())
+                    {
+                        QThread::msleep(50);
+                        continue;
+                    }
+
+                    if(isRetry)
+                    {
+                        if(lastTime.secsTo(QDateTime::currentDateTime()) < m_RetryInterval )
+                        {
+                            QThread::msleep(10);
+                            continue;
+                        }
+                    }
+
+                    //FTP Send
+                    lastTime = QDateTime::currentDateTime();
+                    QFile file(sendFile.filepath);
+                    if(!file.open(QIODevice::ReadOnly)) continue;
+
+                    ///파일 싸이즈가 0이면 삭제한다.
+                    if(file.size() == 0)
+                    {
+                        // 2초간 기다려본다.
+                        QThread::msleep(2000);
+                        try {
+
+                            file.close();
+                            QString logstr = QString("FTP파일 크기 에러(0)-->삭제: %1").arg(sendFile.filename);
+                            log->write(logstr,LOG_NOTICE); //qDebug() << logstr;
+                            emit logappend(logstr);
+                            sendFileList.RemoveFirstFile(sendFile);
+
+
+                        }
+                        catch (exception ex)
+                        {
+                            qDebug() << ex.what();
+                            QString logstr = QString("FTP파일 크기 에러(0)-->삭제: 예외처리 %1").arg(ex.what());
+                            log->write(logstr,LOG_NOTICE);
+                        }
+                        catch (...) {
+
+                            QString logstr = QString("FTP파일 크기 에러(0)-->삭제: 예외처리");
+                            log->write(logstr,LOG_NOTICE);
+
+                        }
+                        continue;
+
+                    }
+
+                    QString fname = sendFile.filename.mid(0,1); //H,X
+                    QString rname = sendFile.filename.mid(1); //~~~.jpg , ~~~.txt
+
+                    if(sendFile.filename.mid(0,1).compare("M") != 0 )
+                        m_pftp->put(&file,rname,QFtp::Binary);
+                    else
+                        m_pftp->put(&file,sendFile.filename,QFtp::Binary);
+
+                    m_iFTPTrans = 0x00;
+                    while(m_iFTPTrans == 0x00 && thread_run)
+                    {
+                        //2초동안 전송을 못 하면 실패
+                        if(lastTime.secsTo(QDateTime::currentDateTime()) > 5 )
+                            break;
+                        //QThread::msleep(100);
+                    }
+                    file.close();
+
+                    if( m_iFTPTrans > 0)
+                    {
+                        m_iFTPTransFail = 0;
+
+                        QString logstr = QString("FTP파일 전송성공 : %1").arg(sendFile.filename);
+                        log->write(logstr,LOG_NOTICE); //qDebug() << logstr;
+                        emit logappend(logstr);
+
+                        if(sendFile.filename.mid(0,1).compare("M") != 0)
+                        {
+                            m_pftp->rename(rname,sendFile.filename);
+                            m_iFTPRename = 0x00;
+                            while(m_iFTPRename == 0x00 && thread_run)
+                            {
+                                //2초동안 전송을 못 하면 실패
+                                if(lastTime.secsTo(QDateTime::currentDateTime()) > 2 )
+                                {
+                                    m_iFTPRename = -1;
+                                    break;
+                                }
+                                QThread::msleep(10);
+                            }
+                            if(m_iFTPRename > 0 )
+                            {
+                                QString logstr = QString("FTP파일 이름변경 성공 : %1 -> %2").arg(rname).arg(sendFile.filename);
+                                log->write(logstr,LOG_NOTICE); //qDebug() << logstr;
+                                emit logappend(logstr);
+                            }
+                            else
+                            {
+                                m_iFTPTrans = -1;
+                                m_iFTPRenameFail++;
+                                QString logstr = QString("FTP파일 이름변경 실패 : %1 -> %2").arg(rname).arg(sendFile.filename);
+                                //동일한 파일이 있으면 삭제한다.
+                                m_pftp->remove(rname);
+                                m_pftp->remove(sendFile.filename);
+                                log->write(logstr,LOG_NOTICE); //qDebug() << logstr;
+                                emit logappend(logstr);
+                            }
+                        }
+
+                        //if(m_iFTPTrans > 0 || m_iFTPRenameFail > 3)
+                        if(m_iFTPTrans > 0)
+                        {
+                            CenterInfo config = commonvalues::center_list.value(0);
+                            if(config.bimagebackup)
+                            {
+                                //이미지를 백업하는 옵션이 있으면...
+                                CopyFile(sendFile);
+                            }
+                            sendFileList.RemoveFirstFile(sendFile);
+
+                            m_iFTPRenameFail = 0;
+                            isRetry = false;
+                        }
+                        else
+                        {
+                           // m_pftp->close();
+                           // isRetry = true;
+                        }
+                    }
+                    else
+                    {
+                        m_iFTPTransFail++;
+                        QString logstr = QString("FTP파일 전송실패(fcnt:%1) : %2").arg(m_iFTPTransFail).arg(sendFile.filename);
+                        log->write(logstr,LOG_NOTICE); //qDebug() << logstr;
+                        emit logappend(logstr);
+                        emit initFtpReq(logstr);
+                    }
                 }
             }
             else
             {
-                if(last_state == QFtp::Unconnected)
-                {
-                    QString logstr = QString("서버[%1] 연결 성공").arg(config.ip.trimmed());
-                    log->write(logstr,LOG_NOTICE); qDebug() << logstr;
-                    emit logappend(logstr);
-                }
-
-                if(sendFileList.Count() == 0)
-                {
-                    QThread::msleep(1000);
-                    continue;
-                }
-
-                SendFileInfo sendFile = sendFileList.GetFirstFile();
-                if(sendFile.filename.isNull() || sendFile.filename.isEmpty())
-                {
-                    QThread::msleep(50);
-                    continue;
-                }
-
-                if(isRetry)
-                {
-                    if(lastTime.secsTo(QDateTime::currentDateTime()) < m_RetryInterval )
-                    {
-                        QThread::msleep(10);
-                        continue;
-                    }
-                }
-
-                //FTP Send
-                lastTime = QDateTime::currentDateTime();
-                QFile file(sendFile.filepath);
-                if(!file.open(QIODevice::ReadOnly)) continue;
-
-                ///파일 싸이즈가 0이면 삭제한다.
-                if(file.size() == 0)
-                {
-                    file.close();
-                    sendFileList.RemoveFirstFile(sendFile);
-                    QString logstr = QString("FTP파일 크기 에러(0)-->삭제: %1").arg(sendFile.filename);
-                    log->write(logstr,LOG_NOTICE); qDebug() << logstr;
-                    emit logappend(logstr);
-                    continue;
-                }
-
-                QString fname = sendFile.filename.mid(0,1); //H,X
-                QString rname = sendFile.filename.mid(1); //~~~.jpg , ~~~.txt
-                if(sendFile.filename.mid(0,1).compare("M") != 0 )
-                    m_pftp->put(&file,rname,QFtp::Binary);
-                else
-                    m_pftp->put(&file,sendFile.filename,QFtp::Binary);
-                m_iFTPTrans = 0x00;
-                while(m_iFTPTrans == 0x00 && thread_run)
-                {
-                    //2초동안 전송을 못 하면 실패
-                    if(lastTime.secsTo(QDateTime::currentDateTime()) > 5 )
-                        break;
-                    //QThread::msleep(100);
-                }
-                file.close();
-
-                if( m_iFTPTrans > 0)
-                {
-                    m_iFTPTransFail = 0;
-
-                    QString logstr = QString("FTP파일 전송성공 : %1").arg(sendFile.filename);
-                    log->write(logstr,LOG_NOTICE); qDebug() << logstr;
-                    emit logappend(logstr);
-
-                    if(sendFile.filename.mid(0,1).compare("M") != 0)
-                    {
-                        m_pftp->rename(rname,sendFile.filename);
-                        m_iFTPRename = 0x00;
-                        while(m_iFTPRename == 0x00 && thread_run)
-                        {
-                            //2초동안 전송을 못 하면 실패
-                            if(lastTime.secsTo(QDateTime::currentDateTime()) > 2 )
-                            {
-                                m_iFTPRename = -1;
-                                break;
-                            }
-                            QThread::msleep(10);
-                        }
-                        if(m_iFTPRename > 0 )
-                        {
-                            QString logstr = QString("FTP파일 이름변경 성공 : %1 -> %2").arg(rname).arg(sendFile.filename);
-                            log->write(logstr,LOG_NOTICE); qDebug() << logstr;
-                            emit logappend(logstr);
-                        }
-                        else
-                        {
-                            m_iFTPTrans = -1;
-                            m_iFTPRenameFail++;
-                            QString logstr = QString("FTP파일 이름변경 실패 : %1 -> %2").arg(rname).arg(sendFile.filename);
-                            //동일한 파일이 있으면 삭제한다.
-                            m_pftp->remove(rname);
-                            m_pftp->remove(sendFile.filename);
-                            log->write(logstr,LOG_NOTICE); qDebug() << logstr;
-                            emit logappend(logstr);
-                        }
-                    }
-
-                    //if(m_iFTPTrans > 0 || m_iFTPRenameFail > 3)
-                    if(m_iFTPTrans > 0)
-                    {
-                        CenterInfo config = commonvalues::center_list.value(0);
-                        if(config.bimagebackup)
-                        {
-                            //이미지를 백업하는 옵션이 있으면...
-                            CopyFile(sendFile);
-                        }
-                        sendFileList.RemoveFirstFile(sendFile);
-
-                        m_iFTPRenameFail = 0;
-                        isRetry = false;
-                    }
-                    else
-                    {
-                       // m_pftp->close();
-                       // isRetry = true;
-                    }
-                }
-                else
-                {
-                    m_iFTPTransFail++;
-                    QString logstr = QString("FTP파일 전송실패(fcnt:%1) : %2").arg(m_iFTPTransFail).arg(sendFile.filename);
-                    log->write(logstr,LOG_NOTICE); qDebug() << logstr;
-                    emit logappend(logstr);
-                    emit initFtpReq(logstr);
-                }
+                QThread::msleep(1000);
             }
+
+            if(lastCount != sendFileList.Count())
+            {
+                lastCount = sendFileList.Count();
+                QString logstr = QString("FTP전송 파일 리스트 : %1").arg(lastCount);
+                log->write(logstr,LOG_NOTICE); //qDebug() << logstr;
+                emit logappend(logstr);
+            }
+            QThread::msleep(100);
+
         }
-        else
+        catch (exception ex)
         {
-            QThread::msleep(1000);
+            qDebug() << ex.what();
+            QString logstr = QString("ThreadWorker 예외처리 %1").arg(ex.what());
+            log->write(logstr,LOG_NOTICE);
+        }
+        catch (...) {
+            QString logstr = QString("ThreadWorker 예외");
+            log->write(logstr,LOG_NOTICE);
         }
 
-        if(lastCount != sendFileList.Count())
-        {
-            lastCount = sendFileList.Count();
-            QString logstr = QString("FTP전송 파일 리스트 : %1").arg(lastCount);
-            log->write(logstr,LOG_NOTICE); qDebug() << logstr;
-            emit logappend(logstr);
-        }
-        QThread::msleep(100);
     }
 
     QString logstr = QString("서버 연결 종료");
-    //log->write(logstr,LOG_NOTICE); qDebug() << logstr;
+    log->write(logstr,LOG_NOTICE); //qDebug() << logstr;
     emit logappend(logstr);
     emit finished();
 }
@@ -312,7 +349,7 @@ void ThreadWorker::ScanSendDataFiles()
     if( sendFileList.Count() > 0)
     {
         logstr = QString("FTP전송 파일 리스트 : %1").arg(sendFileList.Count());
-        log->write(logstr,LOG_NOTICE);  qDebug() <<  logstr;
+        log->write(logstr,LOG_NOTICE);  //qDebug() <<  logstr;
     }
 }
 
@@ -424,9 +461,16 @@ void ThreadWorker::CopyFile(SendFileInfo data)
          file.copy(newFilePath);
 
     }
+    /*catch(exception ex)
+    {
+        qDebug() << ex.what();
+        QString logstr = QString("FTP파일 크기 에러(0)-->삭제: 예외처리 %1").arg(ex.what());
+        log->write(logstr,LOG_NOTICE);
+    }*/
     catch( ... )
     {
         qDebug() << QString("CopyFile Expection");
+        log->write(QString("CopyFile Expection"),LOG_NOTICE);
     }
 }
 

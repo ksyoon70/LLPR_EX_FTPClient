@@ -57,7 +57,7 @@ void MainWindow::init()
 
     plog = new Syslogger(this,"mainwindow",true,commonvalues::loglevel,logpath);
     QString logstr = QString("Program Start(%1)").arg(Program_Version);
-    plog->write(logstr,LOG_ERR); qDebug() << logstr;
+    plog->write(logstr,LOG_ERR); //qDebug() << logstr;
 
     pcenterdlg = new CenterDlg(pcfg);
     pconfigdlg = new configdlg(pcfg);
@@ -510,7 +510,6 @@ void MainWindow::ftpCommandFinished(int id, bool error)
         {
             mp_tWorker->m_iFTPTrans = -1; //fail
             qDebug() << mp_tWorker->m_pftp->errorString();
-            //CancelConnection();
         }
         else
             mp_tWorker->m_iFTPTrans = 1; //success

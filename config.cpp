@@ -33,7 +33,7 @@ bool config::create()
     if(!mdir.exists())
     {
          mdir.mkpath(dir);
-         qDebug() <<"Create Directory:" << dir;
+         //qDebug() <<"Create Directory:" << dir;
     }
 
     //check & create file

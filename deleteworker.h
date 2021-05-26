@@ -16,6 +16,9 @@
 #include <dataclass.h>
 #include <syslogger.h>
 #include "commonvalues.h"
+#include <iostream>
+#include <execinfo.h>
+using namespace std;
 class DeleteWorker : public QObject
 {
     Q_OBJECT

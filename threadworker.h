@@ -6,7 +6,9 @@
 #include <QMutex>
 #include "syslogger.h"
 #include "dataclass.h"
-
+#include <iostream>
+#include <execinfo.h>
+using namespace std;
 
 class SendFileInfo
 {
