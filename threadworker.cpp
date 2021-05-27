@@ -167,14 +167,32 @@ void ThreadWorker::doWork()
                         continue;
 
                     }
+                    QChar char1 = sendFile.filename.at(0);
+                    QChar char2 = sendFile.filename.at(1);
 
-                    QString fname = sendFile.filename.mid(0,1); //H,X
-                    QString rname = sendFile.filename.mid(1); //~~~.jpg , ~~~.txt
+                    QString rname;
+                    bool brename = false;
 
-                    if(sendFile.filename.mid(0,1).compare("M") != 0 )
-                        m_pftp->put(&file,rname,QFtp::Binary);
+                    if( char1.isLetter() == true && char2.isLetter() == true)
+                    {
+                        rname = sendFile.filename.mid(2);
+                        brename = true;
+                    }
+                    else if(char1.isLetter() == true)
+                    {
+                        rname = sendFile.filename.mid(1);
+                        brename = true;
+                    }
                     else
-                        m_pftp->put(&file,sendFile.filename,QFtp::Binary);
+                    {
+                        rname = sendFile.filename;
+                    }
+
+
+                    //QString fname = sendFile.filename.mid(0,1); //H,X
+                    //QString rname = sendFile.filename.mid(1); //~~~.jpg , ~~~.txt
+
+                    m_pftp->put(&file,rname,QFtp::Binary);
 
                     m_iFTPTrans = 0x00;
                     while(m_iFTPTrans == 0x00 && thread_run)
@@ -194,7 +212,7 @@ void ThreadWorker::doWork()
                         log->write(logstr,LOG_NOTICE); //qDebug() << logstr;
                         emit logappend(logstr);
 
-                        if(sendFile.filename.mid(0,1).compare("M") != 0)
+                        if(brename == true)
                         {
                             m_pftp->rename(rname,sendFile.filename);
                             m_iFTPRename = 0x00;
