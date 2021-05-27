@@ -1,0 +1,10 @@
+[Desktop Entry]
+Encoding=UTF-8
+Type=Application
+Name=LLPR_EX_FTPClient
+Comment=My very special application description
+Exec=/home/headway/workspace/build-LLPR_EX_FTPClient-Desktop-Debug/LLPR_EX_FTPClient
+Icon=/usr/share/icons/hicolor/128x128/apps/ftp-icon.png
+Terminal=false
+Categories=GNOME;Application;
+StartupNotify=true
