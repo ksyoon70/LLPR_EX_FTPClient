@@ -33,7 +33,9 @@ bool config::create()
     if(!mdir.exists())
     {
          mdir.mkpath(dir);
-         //qDebug() <<"Create Directory:" << dir;
+#ifdef QT_QML_DEBUG
+         qDebug() <<"Create Directory:" << dir;
+#endif
     }
 
     //check & create file
@@ -80,17 +82,21 @@ bool config::load()
         if (!domDocument.setContent(device, true, &errorStr, &errorLine,
                    &errorColumn))
         {
+#ifdef QT_QML_DEBUG
                     qDebug() << "load Error :"
                                 << "Parse error at line " << errorLine
                                 << ", column " << errorColumn
                                 << ":\n" << errorStr ;
+#endif
                    // return false;
         }
         FileClose(device);
     }
     catch( exception ex)
     {
-        //qDebug() << ex.what();
+#ifdef QT_QML_DEBUG
+        qDebug() << ex.what();
+#endif
         return false;
     }
     return true;
@@ -110,7 +116,9 @@ bool config::save()
     }
     catch (exception ex)
     {
-        //qDebug() << ex.what();
+#ifdef QT_QML_DEBUG
+        qDebug() << ex.what();
+#endif
         return false;
     }
     return true;

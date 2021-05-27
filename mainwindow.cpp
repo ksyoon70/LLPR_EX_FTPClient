@@ -392,7 +392,9 @@ bool MainWindow::loglinecheck()
 
     if ( count > m_maxlogline )
     {
+#ifdef QT_QML_DEBUG
         qDebug() << "teFTPlog clear";
+#endif
         brtn = true;
     }
     return brtn;
@@ -509,7 +511,9 @@ void MainWindow::ftpCommandFinished(int id, bool error)
         if(error)
         {
             mp_tWorker->m_iFTPTrans = -1; //fail
-            //qDebug() << mp_tWorker->m_pftp->errorString();
+#ifdef QT_QML_DEBUG
+            qDebug() << mp_tWorker->m_pftp->errorString();
+#endif
         }
         else
             mp_tWorker->m_iFTPTrans = 1; //success
@@ -521,8 +525,9 @@ void MainWindow::ftpCommandFinished(int id, bool error)
         if(error)
         {
             mp_tWorker->m_iFTPRename = -1; //fail
-            //qDebug() << mp_tWorker->m_pftp->errorString();
-            //CancelConnection();
+#ifdef QT_QML_DEBUG
+            qDebug() << mp_tWorker->m_pftp->errorString();
+#endif
         }
         else
             mp_tWorker->m_iFTPRename = 1; //success
@@ -531,18 +536,19 @@ void MainWindow::ftpCommandFinished(int id, bool error)
     {
         if(error)
         {
-            //qDebug() << mp_tWorker->m_pftp->errorString();
+#ifdef QT_QML_DEBUG
+            qDebug() << mp_tWorker->m_pftp->errorString();
+#endif
         }
-
-        //CancelConnection();
 
     }
     else if(mp_tWorker->m_pftp->currentCommand() == QFtp::ConnectToHost )
     {
         if(error)
         {
-            //qDebug() << mp_tWorker->m_pftp->errorString();
-            //CancelConnection();
+#ifdef QT_QML_DEBUG
+            qDebug() << mp_tWorker->m_pftp->errorString();
+#endif
         }
 
     }
@@ -550,8 +556,9 @@ void MainWindow::ftpCommandFinished(int id, bool error)
     {
         if(error)
         {
-            //qDebug() << mp_tWorker->m_pftp->errorString();
-            //CancelConnection();
+#ifdef QT_QML_DEBUG
+            qDebug() << mp_tWorker->m_pftp->errorString();
+#endif
         }
 
     }

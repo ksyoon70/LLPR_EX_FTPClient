@@ -152,14 +152,16 @@ void ThreadWorker::doWork()
                         }
                         catch (exception ex)
                         {
-                            //qDebug() << ex.what();
-                            QString logstr = QString("FTP파일 크기 에러(0)-->삭제: 예외처리 %1").arg(ex.what());
-                            log->write(logstr,LOG_NOTICE);
+                            #ifdef QT_QML_DEBUG
+                            qDebug() << ex.what();
+                            #endif
+                            QString logstr = QString("FTP파일 크기 에러(0)-->삭제: 예외처리 %1 %2 %3").arg(__FILE__).arg(__LINE__).arg(ex.what());
+                            log->write(logstr,LOG_ERR);
                         }
                         catch (...) {
 
-                            QString logstr = QString("FTP파일 크기 에러(0)-->삭제: 예외처리");
-                            log->write(logstr,LOG_NOTICE);
+                            QString logstr = QString("FTP파일 크기 에러(0)-->삭제: 예외처리 %1 %2").arg(__FILE__).arg(__LINE__);
+                            log->write(logstr,LOG_ERR);
 
                         }
                         continue;
@@ -177,10 +179,10 @@ void ThreadWorker::doWork()
                     m_iFTPTrans = 0x00;
                     while(m_iFTPTrans == 0x00 && thread_run)
                     {
-                        //2초동안 전송을 못 하면 실패
-                        if(lastTime.secsTo(QDateTime::currentDateTime()) > 5 )
+                        //2초동안 전송을 못 하면 실패 --> 파일이 서버에 많으면 전송을 못하는 문제가있다.
+                        if(lastTime.secsTo(QDateTime::currentDateTime()) > 10 )
                             break;
-                        //QThread::msleep(100);
+                        QThread::msleep(100);
                     }
                     file.close();
 
@@ -198,13 +200,13 @@ void ThreadWorker::doWork()
                             m_iFTPRename = 0x00;
                             while(m_iFTPRename == 0x00 && thread_run)
                             {
-                                //2초동안 전송을 못 하면 실패
-                                if(lastTime.secsTo(QDateTime::currentDateTime()) > 2 )
+                                //2초동안 전송을 못 하면 실패 --> 파일이 서버에 많으면 전송을 못하는 문제가있다.
+                                if(lastTime.secsTo(QDateTime::currentDateTime()) > 10 )
                                 {
                                     m_iFTPRename = -1;
                                     break;
                                 }
-                                QThread::msleep(10);
+                                QThread::msleep(100);
                             }
                             if(m_iFTPRename > 0 )
                             {
@@ -252,6 +254,8 @@ void ThreadWorker::doWork()
                         log->write(logstr,LOG_NOTICE); //qDebug() << logstr;
                         emit logappend(logstr);
                         emit initFtpReq(logstr);
+                        m_iFTPTransFail = 0;
+                        m_iFTPRenameFail = 0;
                     }
                 }
             }
@@ -272,13 +276,15 @@ void ThreadWorker::doWork()
         }
         catch (exception ex)
         {
-            //qDebug() << ex.what();
-            QString logstr = QString("ThreadWorker 예외처리 %1").arg(ex.what());
-            log->write(logstr,LOG_NOTICE);
+#ifdef QT_QML_DEBUG
+            qDebug() << ex.what();
+#endif
+            QString logstr = QString("ThreadWorker 예외처리 %1 %2 %3").arg(__FILE__).arg(__LINE__).arg(ex.what());
+            log->write(logstr,LOG_ERR);
         }
         catch (...) {
-            QString logstr = QString("ThreadWorker 예외");
-            log->write(logstr,LOG_NOTICE);
+            QString logstr = QString("ThreadWorker 예외 %1 %2").arg(__FILE__).arg(__LINE__);
+            log->write(logstr,LOG_ERR);
         }
 
     }
@@ -303,7 +309,11 @@ void ThreadWorker::ScanSendDataFiles()
     }
     catch( ... )
     {
-        //qDebug() << QString("ScanSendDataFiles-Directory Check  Exception");
+#ifdef QT_QML_DEBUG
+        qDebug() << QString("ScanSendDataFiles-Directory Check  Exception");
+#endif
+        logstr = QString("ScanSendDataFiles-Directory Check  Exception: %1 %2").arg(__FILE__).arg(__LINE__);
+        log->write(logstr,LOG_ERR);
         return;
     }
 
@@ -318,7 +328,11 @@ void ThreadWorker::ScanSendDataFiles()
     }
     catch( ... )
     {
-        //qDebug() << QString("ScanSendDataFiles-Search Entryile Exception");
+#ifdef QT_QML_DEBUG
+        qDebug() << QString("ScanSendDataFiles-Search Entryile Exception");
+#endif
+        logstr = QString("ScanSendDataFiles-Search Entryile Exception: %1 %2").arg(__FILE__).arg(__LINE__);
+        log->write(logstr,LOG_ERR);
         return;
     }
 
@@ -342,7 +356,7 @@ void ThreadWorker::ScanSendDataFiles()
     if( sendFileList.Count() > 0)
     {
         logstr = QString("FTP전송 파일 리스트 : %1").arg(sendFileList.Count());
-        log->write(logstr,LOG_NOTICE);  //qDebug() <<  logstr;
+        log->write(logstr,LOG_NOTICE);
     }
 }
 
@@ -413,7 +427,12 @@ void ThreadWorker::DeleteFile(QString filepath)
     }
     catch( ... )
     {
-        //qDebug() << QString("DeleteFile exception");
+#ifdef QT_QML_DEBUG
+        qDebug() << QString("DeleteFile exception");
+#endif
+        QString logstr;
+        logstr = QString("DeleteFile exception: %1 %2").arg(__FILE__).arg(__LINE__);
+        log->write(logstr,LOG_ERR);
     }
 }
 
@@ -456,14 +475,19 @@ void ThreadWorker::CopyFile(SendFileInfo data)
     }
     catch(exception ex)
     {
-        //qDebug() << ex.what();
-        QString logstr = QString("FTP파일 크기 에러(0)-->삭제: 예외처리 %1").arg(ex.what());
-        log->write(logstr,LOG_NOTICE);
+#ifdef QT_QML_DEBUG
+        qDebug() << ex.what();
+#endif
+        QString logstr = QString("CopyFile:예외처리 %1 %2 %3").arg(__FILE__).arg(__LINE__).arg(ex.what());
+        log->write(logstr,LOG_ERR);
     }
     catch( ... )
     {
-        //qDebug() << QString("CopyFile Expection");
-        log->write(QString("CopyFile Expection"),LOG_NOTICE);
+#ifdef QT_QML_DEBUG
+        qDebug() << QString("CopyFile:예외처리");
+#endif
+        QString logstr = QString("CopyFile:예외처리 %1 %2").arg(__FILE__).arg(__LINE__);
+        log->write(logstr,LOG_ERR);
     }
 }
 
@@ -518,7 +542,9 @@ bool SendFileInfo::SaveFile(QString path, QString fname, QByteArray filedata)
     }
     catch ( ... )
     {
-        //qDebug() << QString("SaveFile Expection : %1/%2").arg(path).arg(fname);
+#ifdef QT_QML_DEBUG
+        qDebug() << QString("SaveFile Expection : %1/%2").arg(path).arg(fname);
+#endif
         return false;
     }
     return true;
@@ -544,7 +570,9 @@ bool SendFileInfo::ParseFilepath(QString _filepath)
     }
     catch (...)
     {
-        //qDebug() << QString("ParseFilepath Expection : %1").arg(filepath);
+#ifdef QT_QML_DEBUG
+        qDebug() << QString("ParseFilepath Expection : %1").arg(filepath);
+#endif
         return false;
     }
     return true;
@@ -601,7 +629,9 @@ void SendFileInfoList::RemoveFirstFile(SendFileInfo data)
     }
     catch( ... )
     {
-        //qDebug() << QString("RemoveFile Expection");
+#ifdef QT_QML_DEBUG
+        qDebug() << QString("RemoveFile Expection");
+#endif
     }
     mutex.unlock();
 }

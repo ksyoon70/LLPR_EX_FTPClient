@@ -180,11 +180,21 @@ void DeleteWorker::DeleteDir(QString filepath)
     }
     catch(exception ex)
     {
-        //qDebug() << ex.what();
+#ifdef QT_QML_DEBUG
+        qDebug() << ex.what();
+#endif
+        QString logstr;
+        logstr = QString("DeleteDir exception: %1 %2 %3").arg(__FILE__).arg(__LINE__).arg(ex.what());
+        log->write(logstr,LOG_ERR);
     }
     catch( ... )
     {
-        //qDebug() << QString("DeleteFile exception");
+#ifdef QT_QML_DEBUG
+        qDebug() << QString("DeleteDir exception");
+#endif
+        QString logstr;
+        logstr = QString("DeleteDir exception: %1 %2").arg(__FILE__).arg(__LINE__);
+        log->write(logstr,LOG_ERR);
     }
 }
 

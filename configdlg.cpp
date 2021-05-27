@@ -49,7 +49,9 @@ void configdlg::on_btnSetdata_clicked()
     }
     else
     {
-        //qDebug() << "Error Set value ";
+#ifdef QT_QML_DEBUG
+        qDebug() << "Error Set value ";
+#endif
     }
 
 

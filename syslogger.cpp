@@ -46,7 +46,8 @@ void Syslogger::GetCurrentHour(char *return_Date)
 
 void Syslogger::Write_LogFile(const char *format, ...) {
 
-    char TempPath[MAX_PATH];
+    char TempPath[200];
+    char FullPath[MAX_PATH];
      //----------------------------------------------------------------------------
      char TempDate[20];
      char TempHour[20];
@@ -74,9 +75,9 @@ void Syslogger::Write_LogFile(const char *format, ...) {
          mdir.mkpath(TempPath);
      }
 
-     sprintf(TempPath, "%s/log_%s.log",TempPath,TempDate);
+     sprintf(FullPath, "%s/log_%s.log",TempPath,TempDate);
 
-     if( (openLogFile = fopen(TempPath, "ab")) == NULL ) {
+     if( (openLogFile = fopen(FullPath, "ab")) == NULL ) {
          mutex.unlock();
           return;
        }
