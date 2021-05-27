@@ -22,6 +22,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->remoteFileList->setRootIsDecorated(false);
     ui->remoteFileList->setHeaderLabels(QStringList() << tr("Name") << tr("Size") << tr("Time"));
     ui->remoteFileList->header()->setStretchLastSection(false);
+    ui->reRefreshButton->setEnabled(false);
 
     ui->progressBar->setValue(0);
 
@@ -584,6 +585,7 @@ void MainWindow::ftpStatusChanged(int state)
             ui->remoteFileList->setEnabled(false);
             ui->remoteFileList->clear();
             ui->progressBar->setValue(0);
+            ui->reRefreshButton->setEnabled(false);
             commonvalues::center_list[0].status = false;
 
         }
@@ -596,6 +598,7 @@ void MainWindow::ftpStatusChanged(int state)
         break;
     case QFtp::Connected:
         ui->remoteFileList->setEnabled(true);
+        ui->reRefreshButton->setEnabled(true);
         commonvalues::center_list[0].status = true;
         break;
     case QFtp::Close:
@@ -678,3 +681,16 @@ void MainWindow::loadProgress(qint64 bytesSent, qint64 bytesTotal)    //Update p
     ui->progressBar->setValue(bytesSent);  //The current value
 }
 #endif
+
+void MainWindow::on_reRefreshButton_clicked()
+{
+    if(m_pftp)
+    {
+        QFtp::State cur_state = m_pftp->state();
+        if(cur_state != QFtp::Unconnected)
+        {
+            ui->remoteFileList->clear();
+            m_pftp->list();  //서버측의 리스트를 업데이트 한다.
+        }
+    }
+}

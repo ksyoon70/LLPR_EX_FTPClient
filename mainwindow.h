@@ -48,6 +48,8 @@ private slots:
     void localFileUpdate(SendFileInfo *pItem);
     void loadProgress(qint64 bytesSent,qint64 bytesTotal);
 
+    void on_reRefreshButton_clicked();
+
 private:
 #define Program_Version  "LLPR_EX_FTPClient v1.1.0 (date: 2021/05/24)"
     Ui::MainWindow *ui;
