@@ -47,10 +47,10 @@ bool config::create()
         {
             QString data = "<?xml version='1.0' encoding='UTF-8'?>\n";
             data += "<xml>\n";
-            data += "    <title name=\"CENTER\">\n";
+            /*data += "    <title name=\"CENTER\">\n";
             data += "        <title name=\"LIST0\">\n";
             data += "        </title>\n";
-            data += "    </title>\n";
+            data += "    </title>\n";*/
             data += "</xml>\n";
 
             file.write(data.toUtf8());

@@ -363,10 +363,10 @@ void MainWindow::MakeDefaultConfig()
     pcfg->set(title,"DaysToStore","10");
     centerinfo.daysToStore = 10;
 
-   // pcfg->set("CENTER","FTPRetry","0");
+    pcfg->set("CENTER","FTPRetry","0");
     commonvalues::ftpretry = 0;
 
-    //pcfg->set("CENTER","Level","0");
+    pcfg->set("CENTER","Level","0");
     commonvalues::loglevel = LOG_EMERG;
 
     pcfg->save();
