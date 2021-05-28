@@ -8,6 +8,7 @@
 #include "dataclass.h"
 #include <iostream>
 #include <execinfo.h>
+#include <QDirIterator>
 using namespace std;
 
 class SendFileInfo

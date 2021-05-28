@@ -338,6 +338,7 @@ void ThreadWorker::ScanSendDataFiles()
     QFileInfoList filepaths;
     sendFileList.ClearAll();
 
+#if  0
     try
     {
         QStringList filters;
@@ -370,6 +371,47 @@ void ThreadWorker::ScanSendDataFiles()
             break;
         }
     }
+#else
+    QDirIterator dirIter(dir.absolutePath(), QDir::AllEntries | QDir::NoSymLinks | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+    int filecount = 0;
+    try {
+
+            while(dirIter.hasNext())
+            {
+                dirIter.next();
+                if(QFileInfo(dirIter.filePath()).isFile())
+                {
+                    if(QFileInfo(dirIter.filePath()).suffix().toLower() == "jpg" || QFileInfo(dirIter.filePath()).suffix().toLower() == "jpeg" || QFileInfo(dirIter.filePath()).suffix().toLower() == "txt" )
+                    {
+                        //qDebug()<<"File Path: " <<dirIter.filePath();
+                        filecount++;
+                        SendFileInfo info;
+                        QString fpath = dirIter.fileInfo().absoluteFilePath();
+                        if( info.ParseFilepath(fpath))
+                        {
+                            sendFileList.AddFile(info);
+                        }
+                        if(filecount > MAXFTPCOUNT)
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        catch( ... )
+        {
+    #ifdef QT_QML_DEBUG
+            qDebug() << QString("ScanSendDataFiles-Search Entryile Exception");
+    #endif
+            logstr = QString("ScanSendDataFiles-Search Entryile Exception: %1 %2").arg(__FILE__).arg(__LINE__);
+            log->write(logstr,LOG_ERR);
+            return;
+        }
+
+
+
+#endif
 
     if( sendFileList.Count() > 0)
     {
