@@ -13,6 +13,12 @@ ThreadWorker::ThreadWorker(QObject *parent) : QObject(parent)
     FTP_SEND_PATH = path + "/FTP_Trans";
     m_RetryInterval = 5; //sec
 
+    QDir sdir(FTP_SEND_PATH);       //ftp serch directory
+    if(!sdir.exists())
+    {
+         sdir.mkpath(FTP_SEND_PATH);
+    }
+
     m_iFTPTrans = 0;
     m_iFTPRenameFail = 0;
     m_iFTPTransFail = 0;
@@ -317,6 +323,13 @@ void ThreadWorker::ScanSendDataFiles()
 {
     QString logstr;
     QString path = QString("%1/%2").arg(FTP_SEND_PATH).arg(config.centername);
+    QString spath = QString("%1").arg(FTP_SEND_PATH);
+    QDir sdir(spath);
+    if( !sdir.exists())
+    {
+        sdir.mkdir(spath);
+    }
+
     QDir dir(path);
     try
     {
