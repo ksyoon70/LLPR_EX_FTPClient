@@ -87,6 +87,8 @@ public:
     void DeleteFile(QString filepath);
     void CopyFile(SendFileInfo data);
     void RefreshLocalFileList();
+    bool isLegalFileName(QString filename);  //파일 이름이 유효한지에 대한 첵크 이상이 있으면 삭제 한다.
+
 };
 
 #endif // THREADWORKER_H

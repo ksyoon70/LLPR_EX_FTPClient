@@ -173,6 +173,36 @@ void ThreadWorker::doWork()
                         continue;
 
                     }
+
+                    if(!isLegalFileName(sendFile.filename))
+                    {
+                        try {
+
+                            file.close();
+                            QString logstr = QString("파일이름 이상-->삭제: %1").arg(sendFile.filename);
+                            log->write(logstr,LOG_NOTICE); //qDebug() << logstr;
+                            emit logappend(logstr);
+                            sendFileList.RemoveFirstFile(sendFile);
+
+
+                        }
+                        catch (exception ex)
+                        {
+                            #ifdef QT_QML_DEBUG
+                            qDebug() << ex.what();
+                            #endif
+                            QString logstr = QString("파일이름 이상-->삭제: 예외처리 %1 %2 %3").arg(__FILE__).arg(__LINE__).arg(ex.what());
+                            log->write(logstr,LOG_ERR);
+                        }
+                        catch (...) {
+
+                            QString logstr = QString("파일이름 이상-->삭제: 예외처리 %1 %2").arg(__FILE__).arg(__LINE__);
+                            log->write(logstr,LOG_ERR);
+
+                        }
+                        QThread::msleep(100);
+                        continue;
+                    }
                     QChar char1 = sendFile.filename.at(0);
                     QChar char2 = sendFile.filename.at(1);
 
@@ -575,6 +605,24 @@ void ThreadWorker::RefreshLocalFileList()
         memcpy(pItem,&item,sizeof(SendFileInfo));
         emit localFileUpdate(pItem);
     }
+
+}
+
+bool ThreadWorker::isLegalFileName(QString filename)
+{
+    filename = filename.toLower();
+
+    filename = filename.remove(QChar('.'), Qt::CaseInsensitive);  //.jpg에서 .을 삭제함.
+    filename = filename.remove(QChar('_'), Qt::CaseInsensitive);  //_을 삭제함.
+
+    foreach (const QChar& c, filename)
+    {
+        // Check for control characters
+         if (!c.isLetterOrNumber())
+            return false;
+    }
+
+    return true;
 
 }
 bool SendFileInfo::SaveFile(QString path, QString fname, QByteArray filedata)
