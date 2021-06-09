@@ -203,11 +203,14 @@ void ThreadWorker::doWork()
                         QThread::msleep(100);
                         continue;
                     }
-                    QChar char1 = sendFile.filename.at(0);
-                    QChar char2 = sendFile.filename.at(1);
+
+
+                    //QChar char1 = sendFile.filename.at(0);
+                    //QChar char2 = sendFile.filename.at(1);
 
                     QString rname;
                     bool brename = false;
+                    /*
 
                     if( char1.isLetter() == true && char2.isLetter() == true)
                     {
@@ -222,6 +225,18 @@ void ThreadWorker::doWork()
                     else
                     {
                         rname = sendFile.filename;
+                    }
+                    */
+                    int pos =  GetFirstNumPosFromFileName(sendFile.filename);
+
+                    if(pos == 0)
+                    {
+                        rname = sendFile.filename;
+                    }
+                    else
+                    {
+                        rname = sendFile.filename.mid(pos);
+                        brename = true;
                     }
 
 
@@ -624,6 +639,21 @@ bool ThreadWorker::isLegalFileName(QString filename)
 
     return true;
 
+}
+
+int ThreadWorker::GetFirstNumPosFromFileName(QString filename)
+{
+    int pos = 0;
+    foreach (const QChar& c, filename)
+    {
+        // Check for control characters
+         if (c.isNumber())
+         {
+             return pos;
+         }
+         pos++;
+    }
+    return pos;
 }
 bool SendFileInfo::SaveFile(QString path, QString fname, QByteArray filedata)
 {
