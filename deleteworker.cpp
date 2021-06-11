@@ -11,7 +11,7 @@ void DeleteWorker::SetConfig(CenterInfo *configinfo)
     mp_cinfo = configinfo;
     m_daysToStore = mp_cinfo->daysToStore;
 
-    QString logpath = QApplication::applicationDirPath() + "/log";
+    QString logpath = configinfo->logPath;
     QString dir = logpath;
     QDir mdir(dir);
     if(!mdir.exists())
@@ -19,7 +19,7 @@ void DeleteWorker::SetConfig(CenterInfo *configinfo)
          mdir.mkpath(dir);
     }
 
-    log = new Syslogger(this,"ThreadWorker",true,commonvalues::loglevel,logpath);
+    log = new Syslogger(this,"ThreadWorker",true,commonvalues::loglevel,logpath,configinfo->blogsave);
 }
 
 void DeleteWorker::doWork()
@@ -51,7 +51,7 @@ void DeleteWorker::doWork()
             foreach (QFileInfo fileInfo, filepaths)
             {
                 QString fpath = fileInfo.fileName();
-                if(fpath.compare(".") != 0 && fpath.compare("..") != 0)
+                if(fileInfo.isDir() && fpath.length() ==  8 && IsDirNameAllNumber(fpath))
                 {
                     ulong val;
 
@@ -110,7 +110,7 @@ void DeleteWorker::doWork()
             foreach (QFileInfo fileInfo, filepaths)
             {
                 QString fpath = fileInfo.fileName();
-                if(fpath.compare(".") != 0 && fpath.compare("..") != 0)
+                if(fileInfo.isDir() && fpath.length() ==  8 && IsDirNameAllNumber(fpath))
                 {
                     ulong val;
 
@@ -217,5 +217,17 @@ bool DeleteWorker::removeDir(const QString &dirName)
             }
             result = dir.rmdir(dirName);
         }
-    return result;
+        return result;
+}
+
+bool DeleteWorker::IsDirNameAllNumber(QString filepath)
+{
+    foreach (const QChar& c, filepath)
+    {
+        // Check for characters
+         if (!c.isNumber())
+            return false;
+    }
+
+    return true;
 }

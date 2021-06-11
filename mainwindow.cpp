@@ -48,15 +48,14 @@ void MainWindow::init()
     init_config();
 
     //log 디렉토리 생성
-    QString logpath = QApplication::applicationDirPath() + "/log";
-    QString dir = logpath;
-    QDir mdir(dir);
+    QString logpath = commonvalues::center_list[0].logPath;
+    QDir mdir(logpath);
     if(!mdir.exists())
     {
-         mdir.mkpath(dir);
+         mdir.mkpath(logpath);
     }
 
-    plog = new Syslogger(this,"mainwindow",true,commonvalues::loglevel,logpath);
+    plog = new Syslogger(this,"mainwindow",true,commonvalues::loglevel,logpath,commonvalues::center_list[0].blogsave);
     QString logstr = QString("Program Start(%1)").arg(Program_Version);
     plog->write(logstr,LOG_ERR); //qDebug() << logstr;
 
@@ -237,14 +236,51 @@ void MainWindow::applyconfig2common()
             pcfg->set(title,"FileNameSelect","0");
             centerinfo.fileNameSelect = 0;
         }
-        if( ( svalue = pcfg->get(title,"BackupPath") ) != NULL )
+        if( ( svalue = pcfg->get("CENTER","BackupPath") ) != NULL )
         {
             centerinfo.backupPath = svalue;
+            commonvalues::BackImagePath = svalue;
+            //default 디렉토리가 존재하는지 확인한다.
+            QDir dir(commonvalues::BackImagePath);
+
+            if(!dir.exists())
+            {
+                //디렉토리를 만들수 있는지 확인한다.
+                if( dir.mkpath(commonvalues::BackImagePath))
+                {
+
+                }
+                else
+                {
+                    commonvalues::BackImagePath = QString("%1/%2").arg(QApplication::applicationDirPath()).arg("backup");
+                }
+
+                pcfg->set("CENTER","BackupPath",commonvalues::BackImagePath);
+                centerinfo.backupPath = commonvalues::BackImagePath;
+            }
         }
         else
         {
-            pcfg->set(title,"BackupPath","backup");
-            centerinfo.backupPath = "backup";
+            //default 디렉토리가 존재하는지 확인한다.
+            QDir dir(commonvalues::BackImagePath);
+
+            if(dir.exists())
+            {
+            }
+            else
+            {
+                //디렉토리를 만들수 있는지 확인한다.
+                if( dir.mkpath(commonvalues::BackImagePath))
+                {
+
+                }
+                else
+                {
+                    commonvalues::BackImagePath = QString("%1/%2").arg(QApplication::applicationDirPath()).arg("backup");
+                }
+            }
+            pcfg->set("CENTER","BackupPath",commonvalues::BackImagePath);
+            centerinfo.backupPath = commonvalues::BackImagePath;
         }
         if( ( pcfg->getbool(title,"ImageBackupYesNo",&bvalue) ) != false )
         {
@@ -255,6 +291,74 @@ void MainWindow::applyconfig2common()
             pcfg->set(title,"ImageBackupYesNo","True");
             centerinfo.bimagebackup = true;
         }
+
+        if( ( pcfg->getbool(title,"FtpLogSaveYesNo",&bvalue) ) != false )
+        {
+            centerinfo.blogsave = bvalue;  //Ftp로그 저장 여부
+        }
+        else
+        {
+            pcfg->set(title,"FtpLogSaveYesNo","True");
+            centerinfo.blogsave = true;
+        }
+
+        if( ( svalue = pcfg->get("CENTER","LogSavePath") ) != NULL )
+        {
+            centerinfo.logPath = svalue;
+            commonvalues::LogPath = svalue;
+
+            //default 디렉토리가 존재하는지 확인한다.
+            QDir dir(commonvalues::LogPath);
+
+            if(!dir.exists())
+            {
+                //디렉토리를 만들수 있는지 확인한다.
+                if( dir.mkpath(commonvalues::LogPath))
+                {
+
+                }
+                else
+                {
+                    commonvalues::LogPath = QString("%1/%2").arg(QApplication::applicationDirPath()).arg("Ftplog");
+                }
+
+                pcfg->set("CENTER","LogSavePath",commonvalues::LogPath);
+                centerinfo.logPath = commonvalues::LogPath;
+            }
+        }
+        else
+        {
+            //default 디렉토리가 존재하는지 확인한다.
+            QDir dir(commonvalues::LogPath);
+
+            if(dir.exists())
+            {
+            }
+            else
+            {
+                //디렉토리를 만들수 있는지 확인한다.
+                if( dir.mkpath(commonvalues::LogPath))
+                {
+
+                }
+                else
+                {
+                    commonvalues::LogPath = QString("%1/%2").arg(QApplication::applicationDirPath()).arg("Ftplog");
+                }
+            }
+            pcfg->set(title,"LogSavePath",commonvalues::LogPath);
+            centerinfo.logPath = commonvalues::LogPath;
+        }
+        if( ( pcfg->getbool(title,"ImageBackupYesNo",&bvalue) ) != false )
+        {
+            centerinfo.bimagebackup = bvalue;  //백업 여부
+        }
+        else
+        {
+            pcfg->set(title,"ImageBackupYesNo","True");
+            centerinfo.bimagebackup = true;
+        }
+
         if( ( pcfg->getuint(title,"DaysToStore",&uivalue)) != false )
         {
             centerinfo.daysToStore = uivalue;  //백업 여부
@@ -274,6 +378,53 @@ void MainWindow::applyconfig2common()
             commonvalues::ftpretry = 0;
         }
 
+        if( ( svalue = pcfg->get("CENTER","FTPSavePath") ) != NULL )
+        {
+            commonvalues::FileSearchPath = svalue;
+
+            //default 디렉토리가 존재하는지 확인한다.
+            QDir dir(commonvalues::FileSearchPath);
+
+            if(!dir.exists())
+            {
+                //디렉토리를 만들수 있는지 확인한다.
+                if( dir.mkpath(commonvalues::FileSearchPath))
+                {
+
+                }
+                else
+                {
+                    commonvalues::FileSearchPath = QString("%1/%2").arg(QApplication::applicationDirPath()).arg("FTP_Trans");
+                }
+
+                pcfg->set("CENTER","FTPSavePath",commonvalues::FileSearchPath);
+            }
+        }
+        else
+        {
+            //default 디렉토리가 존재하는지 확인한다.
+            QDir dir(commonvalues::FileSearchPath);
+
+            if(dir.exists())
+            {
+
+            }
+            else
+            {
+                //디렉토리를 만들수 있는지 확인한다.
+                if( dir.mkpath(commonvalues::FileSearchPath))
+                {
+
+                }
+                else
+                {
+                    commonvalues::FileSearchPath = QString("%1/%2").arg(QApplication::applicationDirPath()).arg("FTP_Trans");
+                }
+            }
+            pcfg->set("CENTER","FTPSavePath",commonvalues::FileSearchPath);
+
+        }
+
 
       /*       Log Level value             */
        if( pcfg->getuint("LOG","Level",&uivalue))
@@ -282,7 +433,7 @@ void MainWindow::applyconfig2common()
        }
        else
        {
-           pcfg->set("CENTER","Level","0");
+           //pcfg->set("LOG","Level","0");
            commonvalues::loglevel = LOG_EMERG;
        }
 
@@ -354,11 +505,54 @@ void MainWindow::MakeDefaultConfig()
     pcfg->set(title,"FileNameSelect","0");
     centerinfo.fileNameSelect = 0;
 
-    pcfg->set(title,"BackupPath","backup");
-    centerinfo.backupPath = "backup";
+    //default 디렉토리가 존재하는지 확인한다.
+    QDir backupdir(commonvalues::BackImagePath);
+
+    if(backupdir.exists())
+    {
+        pcfg->set("CENTER","BackupPath",commonvalues::BackImagePath);
+    }
+    else
+    {
+        //디렉토리를 만들수 있는지 확인한다.
+        if( backupdir.mkpath(commonvalues::BackImagePath))
+        {
+
+        }
+        else
+        {
+            commonvalues::BackImagePath = QString("%1/%2").arg(QApplication::applicationDirPath()).arg("backup");
+        }
+    }
+    pcfg->set("CENTER","BackupPath",commonvalues::BackImagePath);
+    centerinfo.backupPath = commonvalues::BackImagePath;
 
     pcfg->set(title,"ImageBackupYesNo","True");
     centerinfo.bimagebackup = true;
+
+    pcfg->set(title,"FtpLogSaveYesNo","True");
+    centerinfo.blogsave = true;
+
+    //default 디렉토리가 존재하는지 확인한다.
+    QDir logdir(commonvalues::LogPath);
+
+    if(logdir.exists())
+    {
+        pcfg->set("CENTER","LogSavePath",commonvalues::LogPath);
+    }
+    else
+    {
+        //디렉토리를 만들수 있는지 확인한다.
+        if( backupdir.mkpath(commonvalues::LogPath))
+        {
+
+        }
+        else
+        {
+            commonvalues::LogPath = QString("%1/%2").arg(QApplication::applicationDirPath()).arg("FtpLog");
+        }
+    }
+    pcfg->set("CENTER","LogSavePath",commonvalues::LogPath);
 
     pcfg->set(title,"DaysToStore","10");
     centerinfo.daysToStore = 10;
@@ -366,8 +560,31 @@ void MainWindow::MakeDefaultConfig()
     pcfg->set("CENTER","FTPRetry","0");
     commonvalues::ftpretry = 0;
 
-    pcfg->set("CENTER","Level","0");
+    //pcfg->set("LOG","Level","0");  ///이걸 쓰면 name와 value가 바뀐다.
     commonvalues::loglevel = LOG_EMERG;
+
+
+    //default 디렉토리가 존재하는지 확인한다.
+    QDir dir(commonvalues::FileSearchPath);
+
+    if(dir.exists())
+    {
+        pcfg->set("CENTER","FTPSavePath",commonvalues::FileSearchPath);
+    }
+    else
+    {
+        //디렉토리를 만들수 있는지 확인한다.
+        if( dir.mkpath(commonvalues::FileSearchPath))
+        {
+
+        }
+        else
+        {
+            commonvalues::FileSearchPath = QString("%1/%2").arg(QApplication::applicationDirPath()).arg("FTP_Trans");
+        }
+    }
+    pcfg->set("CENTER","FTPSavePath",commonvalues::FileSearchPath);
+
 
     pcfg->save();
 

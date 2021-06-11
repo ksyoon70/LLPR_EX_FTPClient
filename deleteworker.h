@@ -34,6 +34,7 @@ public slots:
 private:
     void DeleteDir(QString filepath);
     bool removeDir(const QString & dirName);  //QT 4에서 필요시
+    bool IsDirNameAllNumber(QString filepath);  //모든 디렉토리 이름이 번호로 구성되어 있는지 여부
 
     volatile bool thread_run;
     QWaitCondition m_Condition;

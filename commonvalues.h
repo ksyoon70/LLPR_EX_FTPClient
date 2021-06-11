@@ -21,6 +21,9 @@ public:
            FTPRetry_OFF = 0x01
        };
        static int ftpretry;
+       static QString FileSearchPath;
+       static QString LogPath;
+       static QString BackImagePath;
 
        static int loglevel;
 };

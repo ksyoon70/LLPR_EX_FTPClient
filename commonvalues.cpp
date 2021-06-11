@@ -9,5 +9,7 @@ int commonvalues::center_count = 0;
 QList<CenterInfo> commonvalues::center_list;
 QList<QThread *> commonvalues::clientlist;
 int commonvalues::ftpretry = 1;
-
+QString commonvalues::FileSearchPath = "/media/data/FTP_Trans";
+QString commonvalues::LogPath = "/media/data/Ftplog";
+QString commonvalues::BackImagePath = "/media/data/backup";
 int commonvalues::loglevel = LOG_EMERG;

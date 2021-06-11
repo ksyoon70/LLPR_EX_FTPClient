@@ -9,8 +9,8 @@
 ThreadWorker::ThreadWorker(QObject *parent) : QObject(parent)
 {
 
-    QString path = QApplication::applicationDirPath();
-    FTP_SEND_PATH = path + "/FTP_Trans";
+    //QString path = QApplication::applicationDirPath();
+    FTP_SEND_PATH = commonvalues::FileSearchPath;
     m_RetryInterval = 5; //sec
 
     QDir sdir(FTP_SEND_PATH);       //ftp serch directory
@@ -22,7 +22,10 @@ ThreadWorker::ThreadWorker(QObject *parent) : QObject(parent)
     m_iFTPTrans = 0;
     m_iFTPRenameFail = 0;
     m_iFTPTransFail = 0;
-    QString logpath = QApplication::applicationDirPath() + "/log";
+
+    CenterInfo config = commonvalues::center_list.value(0);
+
+    QString logpath = config.logPath;
     QString dir = logpath;
     QDir mdir(dir);
     if(!mdir.exists())
@@ -30,9 +33,7 @@ ThreadWorker::ThreadWorker(QObject *parent) : QObject(parent)
          mdir.mkpath(dir);
     }
 
-    CenterInfo config = commonvalues::center_list.value(0);
-
-    QString backupPath = QString("%1/%2").arg(QApplication::applicationDirPath()).arg(config.backupPath);
+    QString backupPath = config.backupPath;
     QDir backupdir(backupPath);
     if(!backupdir.exists())
     {
@@ -40,7 +41,7 @@ ThreadWorker::ThreadWorker(QObject *parent) : QObject(parent)
     }
 
 
-    log = new Syslogger(this,"ThreadWorker",true,commonvalues::loglevel,logpath);
+    log = new Syslogger(this,"ThreadWorker",true,commonvalues::loglevel,logpath,config.blogsave);
 
     thread_run = true;
 
@@ -579,7 +580,7 @@ void ThreadWorker::CopyFile(SendFileInfo data)
          log->GetCurrentDate(TempDate);
          log->GetCurrentHour(TempHour);
 
-         QString backupPath = QString("%1/%2").arg(QApplication::applicationDirPath()).arg(config.backupPath);
+         QString backupPath = config.backupPath;
 
          sprintf(TempPath,"%s/%s/%s", backupPath.toUtf8().constData(),TempDate,TempHour);
          QDir mdir(TempPath);

@@ -19,7 +19,7 @@ public:
     explicit Syslogger(QObject *parent = 0);
     explicit Syslogger(QObject *parent,QString ident,bool showDate);
     explicit Syslogger(QObject *parent,QString ident,bool showDate,int loglevel);
-    explicit Syslogger(QObject *parent,QString ident,bool showDate,int loglevel, QString base_dir);
+    explicit Syslogger(QObject *parent,QString ident,bool showDate,int loglevel, QString base_dir, bool saveLog);
     ~Syslogger();
     void write(QString value,int loglevel = LOG_DEBUG);
     void Write_LogFile(const char *format, ...);
@@ -37,6 +37,7 @@ public:
 private:
     QString m_ident;
     QString base_path;          //로그를 저장하는 기본 폴더
+    bool m_saveLog;
 
 
 signals:

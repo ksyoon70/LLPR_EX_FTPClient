@@ -32,6 +32,7 @@ public:
     QString password;
     QString ftpPath;
     QString backupPath;
+    QString logPath;
     enum FileNameType
     {
         H_Char = 0x00,
@@ -43,6 +44,7 @@ public:
     QLabel *plbIcon;
     QLabel *plblstatus;
     bool bimagebackup;      ///이미지 백업 여부
+    bool blogsave;      ///로그 여부
     uint daysToStore;        ///저장기간
 };
 

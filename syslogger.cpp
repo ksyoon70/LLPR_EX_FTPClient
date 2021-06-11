@@ -104,6 +104,7 @@ Syslogger::Syslogger(QObject *parent) :
     m_ident = "logfile";
     m_loglevel=LOG_ERR;
     m_limitwritetime = 10;
+    m_saveLog = true;
 }
 
 Syslogger::Syslogger(QObject *parent,QString ident,bool showDate) :
@@ -113,6 +114,7 @@ Syslogger::Syslogger(QObject *parent,QString ident,bool showDate) :
     m_ident = ident;
     m_loglevel=LOG_ERR;
     m_limitwritetime = 10;
+    m_saveLog = true;
 }
 Syslogger::Syslogger(QObject *parent,QString ident,bool showDate,int loglevel) :
     QObject(parent)
@@ -121,9 +123,10 @@ Syslogger::Syslogger(QObject *parent,QString ident,bool showDate,int loglevel) :
     m_ident = ident;
     m_loglevel=loglevel;
     m_limitwritetime = 10;
+    m_saveLog = true;
 }
 
-Syslogger::Syslogger(QObject *parent,QString ident,bool showDate,int loglevel, QString base_dir) :
+Syslogger::Syslogger(QObject *parent,QString ident,bool showDate,int loglevel, QString base_dir, bool saveLog) :
     QObject(parent)
 {
     m_showDate = showDate;
@@ -131,6 +134,7 @@ Syslogger::Syslogger(QObject *parent,QString ident,bool showDate,int loglevel, Q
     m_loglevel=loglevel;
     m_limitwritetime = 10;
     base_path = base_dir;
+    m_saveLog = saveLog;
 }
 
 Syslogger::~Syslogger()
@@ -155,6 +159,9 @@ void Syslogger::write(QString value,int loglevel)
     }
     syslog(loglevel,"%s",text.toUtf8().constData());
 
-    Write_LogFile("%s",text.toUtf8().constData());
+    if(m_saveLog)
+    {
+        Write_LogFile("%s",text.toUtf8().constData());
+    }
 
 }
