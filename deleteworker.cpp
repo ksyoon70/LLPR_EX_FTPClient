@@ -32,7 +32,8 @@ void DeleteWorker::doWork()
 
         QFileInfoList filepaths;
 
-        QString path = QString("%1/%2").arg(QApplication::applicationDirPath()).arg("log");
+        //QString path = QString("%1/%2").arg(QApplication::applicationDirPath()).arg("log");
+        QString path = mp_cinfo->logPath;
         QDir logdir(path);
 
         QDate NowTime = QDate::currentDate();
@@ -97,7 +98,8 @@ void DeleteWorker::doWork()
         log->write("로그 삭제 종료");
         log->write("백업 삭제 시작");
 
-        path = QString("%1/%2").arg(QApplication::applicationDirPath()).arg(mp_cinfo->backupPath);
+        //path = QString("%1/%2").arg(QApplication::applicationDirPath()).arg(mp_cinfo->backupPath);
+        path = mp_cinfo->backupPath;
         QDir backupdir(path);
 
         try

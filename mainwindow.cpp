@@ -549,7 +549,7 @@ void MainWindow::MakeDefaultConfig()
         }
         else
         {
-            commonvalues::LogPath = QString("%1/%2").arg(QApplication::applicationDirPath()).arg("FtpLog");
+            commonvalues::LogPath = QString("%1/%2").arg(QApplication::applicationDirPath()).arg("Ftplog");
         }
     }
     pcfg->set("CENTER","LogSavePath",commonvalues::LogPath);
