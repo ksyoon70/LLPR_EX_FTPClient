@@ -346,7 +346,7 @@ void MainWindow::applyconfig2common()
                     commonvalues::LogPath = QString("%1/%2").arg(QApplication::applicationDirPath()).arg("Ftplog");
                 }
             }
-            pcfg->set(title,"LogSavePath",commonvalues::LogPath);
+            pcfg->set("CENTER","LogSavePath",commonvalues::LogPath);
             centerinfo.logPath = commonvalues::LogPath;
         }
         if( ( pcfg->getbool(title,"ImageBackupYesNo",&bvalue) ) != false )
