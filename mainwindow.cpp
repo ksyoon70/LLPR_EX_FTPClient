@@ -146,6 +146,15 @@ void MainWindow::applyconfig2common()
     while( ( svalue = pcfg->get(title,"IP") ) != NULL)
     {
         CenterInfo centerinfo;
+        if( ( svalue = pcfg->get(title,"TransferType") ) != NULL)
+        {
+            centerinfo.transfertype = svalue;
+        }
+        else
+        {
+            pcfg->set(title,"TransferType","FTP");
+            centerinfo.transfertype = "FTP";
+        }
         if( ( svalue = pcfg->get(title,"CenterName") ) != NULL )
         {
             centerinfo.centername = svalue;
@@ -475,6 +484,10 @@ void MainWindow::MakeDefaultConfig()
     QString title = "CENTER|LIST" + QString::number(i);
 
     CenterInfo centerinfo;
+
+    pcfg->set(title, "TransferType", "FTP");
+    centerinfo.transfertype = "FTP";
+
     pcfg->set(title,"CenterName","center");
     centerinfo.centername = "center";
 

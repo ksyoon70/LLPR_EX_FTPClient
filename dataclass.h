@@ -14,6 +14,7 @@ public:
         fileNameSelect = 0;
         protocol_type = 0;
     }
+    QString transfertype;
     QString centername;
     QString ip;
     int tcpport;
