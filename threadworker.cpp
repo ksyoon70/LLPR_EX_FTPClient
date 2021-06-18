@@ -785,7 +785,7 @@ void SendFileInfoList::RemoveFirstFile(SendFileInfo data)
         qDebug() << QString("RemoveFile Expection");
 #endif
     }
-    mutex.unlock();
+     mutex.unlock();
 }
 
 void SendFileInfoList::ClearAll()

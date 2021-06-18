@@ -12,4 +12,5 @@ int commonvalues::ftpretry = 1;
 QString commonvalues::FileSearchPath = "/media/data/FTP_Trans";
 QString commonvalues::LogPath = "/media/data/Ftplog";
 QString commonvalues::BackImagePath = "/media/data/backup";
+QString commonvalues::TransferType = "FTP";
 int commonvalues::loglevel = LOG_EMERG;

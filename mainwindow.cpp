@@ -62,10 +62,51 @@ void MainWindow::init()
     pcenterdlg = new CenterDlg(pcfg);
     pconfigdlg = new configdlg(pcfg);
 
-    mp_tWorker = new ThreadWorker();
-    mp_wThread = new QThread();
-    m_pftp = new QFtp();
-    mp_tWorker->moveToThread(mp_wThread);
+    if(QString::compare(commonvalues::TransferType, "FTP") == 0)
+    {
+        // FTP Mode //
+        mp_tWorker = new ThreadWorker();
+        mp_wThread = new QThread();
+        m_pftp = new QFtp();
+        mp_tWorker->moveToThread(mp_wThread);
+
+        //설정값 저장
+        QObject::connect(mp_wThread, SIGNAL(started()), mp_tWorker, SLOT(doWork()));
+        QObject::connect(mp_wThread, SIGNAL(finished()), mp_wThread, SLOT(deleteLater()));
+        QObject::connect(mp_tWorker, SIGNAL(finished()), mp_wThread, SLOT(quit()));
+        QObject::connect(mp_tWorker, SIGNAL(finished()), this, SLOT(quitWThread()));
+        QObject::connect(mp_tWorker, SIGNAL(finished()), mp_tWorker, SLOT(deleteLater()));
+        QObject::connect(mp_tWorker, SIGNAL(logappend(QString)),this,SLOT(logappend(QString)));
+        QObject::connect(mp_tWorker, SIGNAL(localFileUpdate(SendFileInfo *)), this, SLOT(localFileUpdate(SendFileInfo *)));
+        QObject::connect(mp_tWorker, SIGNAL(initFtpReq(QString)),this, SLOT(initFtpReqHandler(QString)));
+        QObject::connect(m_pftp, SIGNAL(commandFinished(int,bool)),this, SLOT(ftpCommandFinished(int,bool)));
+        QObject::connect(m_pftp, SIGNAL(stateChanged(int)),this, SLOT(ftpStatusChanged(int)));
+        QObject::connect(m_pftp, SIGNAL(listInfo(QUrlInfo)),this, SLOT(addToList(QUrlInfo)));
+        QObject::connect(m_pftp, SIGNAL(dataTransferProgress(qint64 ,qint64)),this, SLOT(loadProgress(qint64 ,qint64)));
+
+        mp_tWorker->SetConfig(commonvalues::center_list.value(0),m_pftp);
+
+        mp_wThread->start();
+    }
+    else if(QString::compare(commonvalues::TransferType, "SFTP") == 0)
+    {
+        // SFTP Mode //
+        mp_stWorker = new SftpThrWorker();
+        mp_swThread = new QThread();
+        mp_stWorker->moveToThread(mp_swThread);
+
+        QObject::connect(mp_swThread, SIGNAL(started()), mp_stWorker, SLOT(doWork()));
+        QObject::connect(mp_swThread, SIGNAL(finished()), mp_swThread, SLOT(deleteLater()));
+        QObject::connect(mp_stWorker, SIGNAL(finished()), mp_swThread, SLOT(quit()));
+        QObject::connect(mp_stWorker, SIGNAL(finished()), this, SLOT(quitWThread()));
+        QObject::connect(mp_stWorker, SIGNAL(finished()), mp_stWorker, SLOT(deleteLater()));
+        QObject::connect(mp_stWorker, SIGNAL(logappend(QString)),this,SLOT(logappend(QString)));
+        QObject::connect(mp_stWorker, SIGNAL(localFileUpdate(SendFileInfo *)), this, SLOT(localFileUpdate(SendFileInfo *)));
+
+        QObject::connect(mp_stWorker, SIGNAL(remoteFileUpdate(LIBSSH2_SFTP**)), this, SLOT(remoteFileUpdate(LIBSSH2_SFTP**)));
+
+        mp_swThread->start();
+    }
 
 
     //삭제 쓰레드 생성
@@ -75,21 +116,7 @@ void MainWindow::init()
     mp_dWorker->SetConfig(&commonvalues::center_list[0]);
     mp_dWorker->moveToThread(mp_dThread);
 #endif
-    //설정값 저장
 
-
-    QObject::connect(mp_wThread, SIGNAL(started()), mp_tWorker, SLOT(doWork()));
-    QObject::connect(mp_wThread, SIGNAL(finished()), mp_wThread, SLOT(deleteLater()));
-    QObject::connect(mp_tWorker, SIGNAL(finished()), mp_wThread, SLOT(quit()));
-    QObject::connect(mp_tWorker, SIGNAL(finished()), this, SLOT(quitWThread()));
-    QObject::connect(mp_tWorker, SIGNAL(finished()), mp_tWorker, SLOT(deleteLater()));
-    QObject::connect(mp_tWorker, SIGNAL(logappend(QString)),this,SLOT(logappend(QString)));
-    QObject::connect(mp_tWorker, SIGNAL(localFileUpdate(SendFileInfo *)), this, SLOT(localFileUpdate(SendFileInfo *)));
-    QObject::connect(mp_tWorker, SIGNAL(initFtpReq(QString)),this, SLOT(initFtpReqHandler(QString)));
-    QObject::connect(m_pftp, SIGNAL(commandFinished(int,bool)),this, SLOT(ftpCommandFinished(int,bool)));
-    QObject::connect(m_pftp, SIGNAL(stateChanged(int)),this, SLOT(ftpStatusChanged(int)));
-    QObject::connect(m_pftp, SIGNAL(listInfo(QUrlInfo)),this, SLOT(addToList(QUrlInfo)));
-    QObject::connect(m_pftp, SIGNAL(dataTransferProgress(qint64 ,qint64)),this, SLOT(loadProgress(qint64 ,qint64)));
 #if 1
     QObject::connect(mp_dThread, SIGNAL(started()), mp_dWorker, SLOT(doWork()));
     QObject::connect(mp_dThread, SIGNAL(finished()), mp_dThread, SLOT(deleteLater()));
@@ -99,9 +126,6 @@ void MainWindow::init()
 #endif
     initaction();
 
-    mp_tWorker->SetConfig(commonvalues::center_list.value(0),m_pftp);
-
-    mp_wThread->start();
 #if 1
     mp_dThread->start();
 #endif
@@ -149,6 +173,7 @@ void MainWindow::applyconfig2common()
         if( ( svalue = pcfg->get(title,"TransferType") ) != NULL)
         {
             centerinfo.transfertype = svalue;
+            commonvalues::TransferType = svalue;
         }
         else
         {
@@ -923,4 +948,52 @@ void MainWindow::on_reRefreshButton_clicked()
             m_pftp->list();  //서버측의 리스트를 업데이트 한다.
         }
     }
+}
+
+void MainWindow::remoteFileUpdate(LIBSSH2_SFTP **sftp_session)
+{
+    /*
+    LIBSSH2_SFTP_HANDLE *sftp_handle;
+    LIBSSH2_SFTP_ATTRIBUTES attrs;
+    QString remote = "/home/hanlead";
+    int rc;
+    char fname[512];
+    QString filename;
+    QDate nowTime;
+    QString qNow;
+
+    const char *remotePath = remote.toStdString().c_str();
+
+    if(*sftp_session != nullptr)
+    {
+        sftp_handle = libssh2_sftp_opendir(*sftp_session, remotePath);
+        libssh2_sftp_fstat_ex(sftp_handle, &attrs, 0);
+
+        if(!sftp_handle)
+        {
+            rc = libssh2_sftp_readdir(sftp_handle, fname, sizeof(fname), &attrs);
+            if(rc > 0)
+            {
+                filename = QString("%1").arg(fname);
+                nowTime = QDate::currentDate();
+                qNow = QString("%1%2%3").arg(nowTime.year()).arg(nowTime.month()).arg(nowTime.day());
+
+                QTreeWidgetItem *item = new QTreeWidgetItem;
+                item->setText(0, filename);
+                item->setText(1, QString::number(sizeof(filename)));
+                item->setText(2, qNow);
+
+                //QPixmap pixmap(urlInfo.isDir() ? ":/images/dir.png" : ":/images/file.png");
+                //item->setIcon(0, pixmap);
+
+                //isDirectory[urlInfo.name()] = urlInfo.isDir();
+                ui->remoteFileList->addTopLevelItem(item);
+                if (!ui->remoteFileList->currentItem()) {
+                    ui->remoteFileList->setCurrentItem(ui->remoteFileList->topLevelItem(0));
+                    ui->remoteFileList->setEnabled(true);
+                }
+            }
+        }
+    }
+    */
 }

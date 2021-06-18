@@ -24,6 +24,7 @@ public:
        static QString FileSearchPath;
        static QString LogPath;
        static QString BackImagePath;
+       static QString TransferType;
 
        static int loglevel;
 };
