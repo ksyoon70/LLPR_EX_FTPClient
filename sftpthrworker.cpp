@@ -30,6 +30,7 @@ SftpThrWorker::SftpThrWorker(QObject *parent) : QObject(parent)
     }
 
     m_iSFTPRename = 0;
+    m_RetryInterval = 5;
 
     config = commonvalues::center_list.value(0);
 
@@ -60,7 +61,7 @@ SftpThrWorker::SftpThrWorker(QObject *parent) : QObject(parent)
 void SftpThrWorker::doWork()
 {
     int lastCount = 0;
-    bool isRetry = false;
+    bool isRetry = true;
     QDateTime lastTime = QDateTime::currentDateTime().addDays(-1);
 
     QString lastFilename;
@@ -75,16 +76,12 @@ void SftpThrWorker::doWork()
     password = config.password.toStdString().c_str();
     sftppath = config.ftpPath.toStdString().c_str();
 
-    sshInit();
-    connectSocket();
-    initSession();
-    //remoteConnect();
-
     while(thread_run)
     {
         if(isRetry)
         {
             closeSession();
+            emit remoteFileUpdate(NULL, NULL, QDateTime::currentDateTime());
 
             if(!sshInit())
             {
@@ -101,10 +98,14 @@ void SftpThrWorker::doWork()
                 QThread::msleep(1000);
                 continue;
             }
+            else if(!initSFTP())
+            {
+                QThread::msleep(1000);
+                continue;
+            }
             else
             {
                 remoteConnect();
-                //emit remoteFileUpdate(&sftp_session);
                 isRetry = false;
             }
         }
@@ -135,7 +136,7 @@ void SftpThrWorker::doWork()
 
             if(isRetry)
             {
-                if(lastTime.secsTo(QDateTime::currentDateTime()) < 2000)
+                if(lastTime.secsTo(QDateTime::currentDateTime()) < m_RetryInterval)
                 {
                     QThread::msleep(10);
                     continue;
@@ -207,7 +208,7 @@ void SftpThrWorker::doWork()
             log->write(logstr,LOG_NOTICE);
             emit logappend(logstr);
 
-            if(initSFTP())
+            if(openSFTP())
             {
                 if(sendData())
                 {
@@ -287,11 +288,17 @@ void SftpThrWorker::doWork()
             else
             {
                 isRetry = true;
+                emit remoteFileUpdate(NULL, NULL, QDateTime::currentDateTime());
+                emit finished();
             }
         }
+        else
+        {
+            isRetry = true;
+            emit remoteFileUpdate(NULL, NULL, QDateTime::currentDateTime());
+            emit finished();
+        }
     }
-
-    emit finished();
 }
 bool SftpThrWorker::sshInit()
 {
@@ -397,15 +404,20 @@ bool SftpThrWorker::initSession()
 
 bool SftpThrWorker::initSFTP()
 {
-    bool sftpSuc = false;
-
     sftp_session = libssh2_sftp_init(session);
 
     logstr = QString("SFTP : SFTP 초기화!!");
     log->write(logstr,LOG_NOTICE);
     emit logappend(logstr);
 
-    QString Remotefilepath = QString("%1").arg(config.ftpPath).arg(noCharFileName);
+    return true;
+}
+
+bool SftpThrWorker::openSFTP()
+{
+    bool sftpSuc = false;
+
+    QString Remotefilepath = QString("%1/%2").arg(config.ftpPath).arg(noCharFileName);
     QByteArray cvt;
     cvt = Remotefilepath.toLocal8Bit();
     const char* _sftppath = cvt.data();
@@ -665,25 +677,12 @@ bool SftpThrWorker::isLegalFileName(QString filename)
 void SftpThrWorker::remoteConnect()
 {
     LIBSSH2_SFTP_ATTRIBUTES attrs;
-    QString remote = "/home/hanlead";
     int rc;
     char fname[512];
     QString filename;
-    QDate nowTime;
-    QString qNow;
+    QString filesize;
     const char *remotePath;
-    QByteArray ba;
-    ba = remote.toLocal8Bit();
-    remotePath = ba.data();
-    //remotePath= remote.toStdString().c_str();
-
-    /*
-    if(sftp_handle != nullptr)
-    {
-        libssh2_sftp_closedir(sftp_handle);
-    }
-    sftp_handle = nullptr;
-    */
+    remotePath= config.ftpPath.toStdString().c_str();
 
     if(sftp_session != nullptr)
     {
@@ -692,13 +691,36 @@ void SftpThrWorker::remoteConnect()
 
         if(sftp_handle != nullptr)
         {
-            rc = libssh2_sftp_readdir(sftp_handle, fname, sizeof(fname), &attrs);
-            if(rc > 0)
+            do
             {
-                filename = QString("%1").arg(fname);
-                nowTime = QDate::currentDate();
-                qNow = QString("%1%2%3").arg(nowTime.year()).arg(nowTime.month()).arg(nowTime.day());
+                rc = libssh2_sftp_readdir(sftp_handle, fname, sizeof(fname), &attrs);
+                if(rc > 0)
+                {
+                    filename = QString("%1").arg(fname);
+                    filesize = QString("%1").arg(attrs.filesize);
+                    QDateTime qdate = QDateTime::fromTime_t(attrs.mtime);
+
+                    emit remoteFileUpdate(filename, filesize, qdate);
+                }
+                else
+                {
+                    break;
+                }
             }
+            while(1);
+        }
+        else
+        {
+            logstr = QString("SFTP : remoteConnect fail (sftp_handle Error)");
+            emit logappend(logstr);
         }
     }
+    else
+    {
+        logstr = QString("SFTP : remoteConnect fail (sftp_session Error)");
+        emit logappend(logstr);
+    }
+
+    libssh2_sftp_closedir(sftp_handle);
+    sftp_handle = nullptr;
 }

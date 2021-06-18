@@ -48,7 +48,7 @@ private slots:
     void addToList(const QUrlInfo &urlInfo);
     void localFileUpdate(SendFileInfo *pItem);
     void loadProgress(qint64 bytesSent,qint64 bytesTotal);
-    void remoteFileUpdate(LIBSSH2_SFTP **sftp_session);
+    void remoteFileUpdate(QString rfname, QString rfsize, QDateTime rftime);
 
     void on_reRefreshButton_clicked();
 

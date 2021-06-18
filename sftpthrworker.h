@@ -28,7 +28,7 @@ signals:
     void finished();
     void logappend(QString logstr);
     void localFileUpdate(SendFileInfo *sendFileInfo);
-    void remoteFileUpdate(LIBSSH2_SFTP **sftp_session);
+    void remoteFileUpdate(QString rfname, QString rfsize, QDateTime rftime);
 
 public slots:
     void doWork();
@@ -37,6 +37,7 @@ public:
     Syslogger *log;
     CenterInfo config;
     int m_iSFTPRename;
+    int m_RetryInterval;
     const int MAXSFTPCOUNT = 10;
 
     const char *username;
@@ -62,6 +63,7 @@ public:
     bool connectSocket();
     bool initSession();
     bool initSFTP();
+    bool openSFTP();
     bool sendData();
 
     void closeSFTP();

@@ -103,7 +103,7 @@ void MainWindow::init()
         QObject::connect(mp_stWorker, SIGNAL(logappend(QString)),this,SLOT(logappend(QString)));
         QObject::connect(mp_stWorker, SIGNAL(localFileUpdate(SendFileInfo *)), this, SLOT(localFileUpdate(SendFileInfo *)));
 
-        QObject::connect(mp_stWorker, SIGNAL(remoteFileUpdate(LIBSSH2_SFTP**)), this, SLOT(remoteFileUpdate(LIBSSH2_SFTP**)));
+        QObject::connect(mp_stWorker, SIGNAL(remoteFileUpdate(QString, QString, QDateTime)), this, SLOT(remoteFileUpdate(QString, QString, QDateTime)));
 
         mp_swThread->start();
     }
@@ -950,50 +950,46 @@ void MainWindow::on_reRefreshButton_clicked()
     }
 }
 
-void MainWindow::remoteFileUpdate(LIBSSH2_SFTP **sftp_session)
+void MainWindow::remoteFileUpdate(QString rfname, QString rfsize, QDateTime rftime)
 {
-    /*
-    LIBSSH2_SFTP_HANDLE *sftp_handle;
-    LIBSSH2_SFTP_ATTRIBUTES attrs;
-    QString remote = "/home/hanlead";
-    int rc;
-    char fname[512];
-    QString filename;
-    QDate nowTime;
-    QString qNow;
+    QFileInfo fileInfo(rfname);
+    QString Ext;
+    bool isFile;
+    QTreeWidgetItem *item = new QTreeWidgetItem;
 
-    const char *remotePath = remote.toStdString().c_str();
+    Ext = fileInfo.completeSuffix();
 
-    if(*sftp_session != nullptr)
+    item->setText(0, rfname);
+    item->setText(1, rfsize);
+    item->setText(2, rftime.toString("MMM dd yyyy"));
+
+    if(rfname == NULL)
     {
-        sftp_handle = libssh2_sftp_opendir(*sftp_session, remotePath);
-        libssh2_sftp_fstat_ex(sftp_handle, &attrs, 0);
-
-        if(!sftp_handle)
-        {
-            rc = libssh2_sftp_readdir(sftp_handle, fname, sizeof(fname), &attrs);
-            if(rc > 0)
-            {
-                filename = QString("%1").arg(fname);
-                nowTime = QDate::currentDate();
-                qNow = QString("%1%2%3").arg(nowTime.year()).arg(nowTime.month()).arg(nowTime.day());
-
-                QTreeWidgetItem *item = new QTreeWidgetItem;
-                item->setText(0, filename);
-                item->setText(1, QString::number(sizeof(filename)));
-                item->setText(2, qNow);
-
-                //QPixmap pixmap(urlInfo.isDir() ? ":/images/dir.png" : ":/images/file.png");
-                //item->setIcon(0, pixmap);
-
-                //isDirectory[urlInfo.name()] = urlInfo.isDir();
-                ui->remoteFileList->addTopLevelItem(item);
-                if (!ui->remoteFileList->currentItem()) {
-                    ui->remoteFileList->setCurrentItem(ui->remoteFileList->topLevelItem(0));
-                    ui->remoteFileList->setEnabled(true);
-                }
-            }
-        }
+        ui->remoteFileList->setEnabled(false);
+        return;
     }
-    */
+    else
+    {
+        ui->remoteFileList->setEnabled(true);
+    }
+
+    if(Ext == "JPG" || Ext == "jpg" || Ext == "txt")
+    {
+        isFile = true;
+    }
+    else
+    {
+        isFile = false;
+    }
+
+    QPixmap pixmap(isFile ?
+       "/media/sf_shared/build-LLPR_EX_FTPClient-Desktop_Qt_5_10_0_GCC_64bit-Debug/images/file.png"
+       : "/media/sf_shared/build-LLPR_EX_FTPClient-Desktop_Qt_5_10_0_GCC_64bit-Debug/images/dir.png");
+    item->setIcon(0, pixmap);
+
+    ui->remoteFileList->addTopLevelItem(item);
+    if (!ui->remoteFileList->currentItem()) {
+        ui->remoteFileList->setCurrentItem(ui->remoteFileList->topLevelItem(0));
+        ui->remoteFileList->setEnabled(true);
+    }
 }
