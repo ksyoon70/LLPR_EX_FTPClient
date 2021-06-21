@@ -28,7 +28,7 @@ signals:
     void finished();
     void logappend(QString logstr);
     void localFileUpdate(SendFileInfo *sendFileInfo);
-    void remoteFileUpdate(QString rfname, QString rfsize, QDateTime rftime);
+    void remoteFileUpdate(QString rfname, QString rfsize, QDateTime rftime, bool isDir);
 
 public slots:
     void doWork();

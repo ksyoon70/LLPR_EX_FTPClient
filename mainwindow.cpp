@@ -103,7 +103,7 @@ void MainWindow::init()
         QObject::connect(mp_stWorker, SIGNAL(logappend(QString)),this,SLOT(logappend(QString)));
         QObject::connect(mp_stWorker, SIGNAL(localFileUpdate(SendFileInfo *)), this, SLOT(localFileUpdate(SendFileInfo *)));
 
-        QObject::connect(mp_stWorker, SIGNAL(remoteFileUpdate(QString, QString, QDateTime)), this, SLOT(remoteFileUpdate(QString, QString, QDateTime)));
+        QObject::connect(mp_stWorker, SIGNAL(remoteFileUpdate(QString, QString, QDateTime, bool)), this, SLOT(remoteFileUpdate(QString, QString, QDateTime, bool)));
 
         mp_swThread->start();
     }
@@ -939,25 +939,28 @@ void MainWindow::loadProgress(qint64 bytesSent, qint64 bytesTotal)    //Update p
 
 void MainWindow::on_reRefreshButton_clicked()
 {
-    if(m_pftp)
+    if(QString::compare(commonvalues::TransferType, "FTP") == 0)
     {
-        QFtp::State cur_state = m_pftp->state();
-        if(cur_state != QFtp::Unconnected)
+        if(m_pftp)
         {
-            ui->remoteFileList->clear();
-            m_pftp->list();  //서버측의 리스트를 업데이트 한다.
+            QFtp::State cur_state = m_pftp->state();
+            if(cur_state != QFtp::Unconnected)
+            {
+                ui->remoteFileList->clear();
+                m_pftp->list();  //서버측의 리스트를 업데이트 한다.
+            }
         }
+    }
+    else if(QString::compare(commonvalues::TransferType, "SFTP") == 0)
+    {
+        ui->remoteFileList->clear();
+        mp_stWorker->remoteConnect();
     }
 }
 
-void MainWindow::remoteFileUpdate(QString rfname, QString rfsize, QDateTime rftime)
+void MainWindow::remoteFileUpdate(QString rfname, QString rfsize, QDateTime rftime, bool isDir)
 {
-    QFileInfo fileInfo(rfname);
-    QString Ext;
-    bool isFile;
     QTreeWidgetItem *item = new QTreeWidgetItem;
-
-    Ext = fileInfo.completeSuffix();
 
     item->setText(0, rfname);
     item->setText(1, rfsize);
@@ -965,26 +968,20 @@ void MainWindow::remoteFileUpdate(QString rfname, QString rfsize, QDateTime rfti
 
     if(rfname == NULL)
     {
+        ui->remoteFileList->clear();
+        commonvalues::center_list[0].status = false;
         ui->remoteFileList->setEnabled(false);
+        ui->reRefreshButton->setEnabled(false);
         return;
     }
     else
     {
+        commonvalues::center_list[0].status = true;
         ui->remoteFileList->setEnabled(true);
+        ui->reRefreshButton->setEnabled(true);
     }
 
-    if(Ext == "JPG" || Ext == "jpg" || Ext == "txt")
-    {
-        isFile = true;
-    }
-    else
-    {
-        isFile = false;
-    }
-
-    QPixmap pixmap(isFile ?
-       "/media/sf_shared/build-LLPR_EX_FTPClient-Desktop_Qt_5_10_0_GCC_64bit-Debug/images/file.png"
-       : "/media/sf_shared/build-LLPR_EX_FTPClient-Desktop_Qt_5_10_0_GCC_64bit-Debug/images/dir.png");
+    QPixmap pixmap(isDir ? ":/images/dir.png" : ":/images/file.png");
     item->setIcon(0, pixmap);
 
     ui->remoteFileList->addTopLevelItem(item);
