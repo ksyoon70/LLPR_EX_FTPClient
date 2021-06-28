@@ -91,7 +91,8 @@ void MainWindow::init()
     else if(QString::compare(commonvalues::TransferType, "SFTP") == 0)
     {
         // SFTP Mode //
-        mp_stWorker = new SftpThrWorker();
+        m_socket = new QTcpSocket();
+        mp_stWorker = new SftpThrWorker(m_socket);
         mp_swThread = new QThread();
         mp_stWorker->moveToThread(mp_swThread);
 
@@ -102,8 +103,11 @@ void MainWindow::init()
         QObject::connect(mp_stWorker, SIGNAL(finished()), mp_stWorker, SLOT(deleteLater()));
         QObject::connect(mp_stWorker, SIGNAL(logappend(QString)),this,SLOT(logappend(QString)));
         QObject::connect(mp_stWorker, SIGNAL(localFileUpdate(SendFileInfo *)), this, SLOT(localFileUpdate(SendFileInfo *)));
-
+        QObject::connect(mp_stWorker, SIGNAL(transferProgress(qint64, qint64)), this, SLOT(loadProgress(qint64,qint64)));
         QObject::connect(mp_stWorker, SIGNAL(remoteFileUpdate(QString, QString, QDateTime, bool)), this, SLOT(remoteFileUpdate(QString, QString, QDateTime, bool)));
+
+        QObject::connect(m_socket, SIGNAL(connected()), this, SLOT(connected()));
+        QObject::connect(m_socket, SIGNAL(disconnected()), this, SLOT(disconnected()));
 
         mp_swThread->start();
     }
@@ -736,6 +740,15 @@ void MainWindow::onTimer()
             mp_dWorker->doRun();
         }
 
+        if(commonvalues::SftpSocketConn == false)
+        {
+            QString title = "CENTER|LIST" + QString::number(0);
+            QString ipaddr = pcfg->get(title,"IP");
+            QString socketport = pcfg->get(title,"TCPPort");
+
+            connectSocket(ipaddr, socketport.toInt());
+        }
+
     }
     m_mseccount++;
 }
@@ -989,4 +1002,51 @@ void MainWindow::remoteFileUpdate(QString rfname, QString rfsize, QDateTime rfti
         ui->remoteFileList->setCurrentItem(ui->remoteFileList->topLevelItem(0));
         ui->remoteFileList->setEnabled(true);
     }
+}
+
+void MainWindow::connected()
+{
+    commonvalues::center_list[0].status = true;
+    commonvalues::SftpSocketConn = true;
+
+    QString logstr = QString("SFTP : Socket 연결 성공!!");
+    logappend(logstr);
+
+    ui->remoteFileList->setEnabled(true);
+    ui->reRefreshButton->setEnabled(true);
+}
+void MainWindow::disconnected()
+{
+    commonvalues::center_list[0].status = false;
+    commonvalues::SftpSocketConn = false;
+
+    QString logstr = QString("SFTP : Socket 연결 실패..");
+    logappend(logstr);
+
+    ui->remoteFileList->clear();
+    ui->remoteFileList->setEnabled(false);
+    ui->reRefreshButton->setEnabled(false);
+
+    m_socket->disconnectFromHost();
+    m_socket->close();
+}
+
+bool MainWindow::connectSocket(QString host, qint32 port)
+{
+    bool connectState = false;
+    if(m_socket->state() == QAbstractSocket::UnconnectedState)
+    {
+        m_socket->connectToHost(host, port, QAbstractSocket::WriteOnly);
+        return m_socket->waitForConnected();
+    }
+    else if(m_socket->state() == QAbstractSocket::ConnectedState)
+    {
+        connectState = true;
+    }
+    else
+    {
+        connectState = false;
+    }
+
+    return connectState;
 }

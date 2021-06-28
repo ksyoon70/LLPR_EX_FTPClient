@@ -157,7 +157,7 @@ void Syslogger::write(QString value,int loglevel)
     {
         text = QString("%1").arg(value);
     }
-    syslog(loglevel,"%s",text.toUtf8().constData());
+    //syslog(loglevel,"%s",text.toUtf8().constData());
 
     if(m_saveLog)
     {

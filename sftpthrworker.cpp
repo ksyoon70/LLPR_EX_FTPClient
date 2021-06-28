@@ -16,11 +16,12 @@
 #include <errno.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <QProcess>
 
 #include "commonvalues.h"
 #include "threadworker.h"
 
-SftpThrWorker::SftpThrWorker(QObject *parent) : QObject(parent)
+SftpThrWorker::SftpThrWorker(QTcpSocket *socket, QObject *parent) : QObject(parent)
 {
     SFTP_SEND_PATH = commonvalues::FileSearchPath;
     QDir sdir(SFTP_SEND_PATH);       //sftp serch directory
@@ -49,6 +50,8 @@ SftpThrWorker::SftpThrWorker(QObject *parent) : QObject(parent)
          backupdir.mkpath(backupPath);
     }
 
+    m_socket = socket;
+
     session = nullptr;
     sftp_session = nullptr;
     sftp_handle = nullptr;
@@ -61,10 +64,8 @@ SftpThrWorker::SftpThrWorker(QObject *parent) : QObject(parent)
 void SftpThrWorker::doWork()
 {
     int lastCount = 0;
-    bool isRetry = true;
+    bool isRetry = false;
     QDateTime lastTime = QDateTime::currentDateTime().addDays(-1);
-    QDateTime lastConnect;
-    int seconds;
 
     QString lastFilename;
     QString curFilename;
@@ -80,50 +81,53 @@ void SftpThrWorker::doWork()
 
     while(thread_run)
     {
-        // 소켓 재접속 루틴
-        seconds = QDateTime::currentDateTime().toTime_t() - lastConnect.toTime_t();
-        if(seconds > 5)
+        if(commonvalues::SftpSocketConn == true)
         {
-            if(connectSocket())
+            if(isRetry == true)
             {
-                lastConnect = QDateTime::currentDateTime();
-                remoteConnect();
-            }
-            else
-            {
-                lastConnect = QDateTime::currentDateTime();
-                emit remoteFileUpdate(NULL, NULL, QDateTime::currentDateTime(), false);
+                if(sshInit())
+                {
+                    QThread::msleep(100);
+                    if(initSession())
+                    {
+                        QThread::msleep(100);
+                        if(initSFTP())
+                        {
+                            QThread::msleep(100);
+                            remoteConnect();
+                            isRetry = false;
+                        }
+                        else
+                        {
+                            closeSFTP();
+                            logstr = QString("initSFTP fail");
+                            emit logappend(logstr);
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        closeSession();
+                        logstr = QString("Session fail");
+                        emit logappend(logstr);
+                        continue;
+                    }
+                }
+                else
+                {
+                    logstr = QString("sshInit fail");
+                    emit logappend(logstr);
+                    continue;
+                }
             }
         }
-
-        if(isRetry)
+        else
         {
-            closeSession();
-
-            if(!sshInit())
+            if(commonvalues::SftpSocketConn == false)
             {
-                QThread::msleep(1000);
+                shutdown();
+                isRetry = true;
                 continue;
-            }
-            else if(!connectSocket())
-            {
-                QThread::msleep(1000);
-                continue;
-            }
-            else if(!initSession())
-            {
-                QThread::msleep(1000);
-                continue;
-            }
-            else if(!initSFTP())
-            {
-                QThread::msleep(1000);
-                continue;
-            }
-            else
-            {
-                remoteConnect();
-                isRetry = false;
             }
         }
 
@@ -256,14 +260,14 @@ void SftpThrWorker::doWork()
             log->write(logstr,LOG_NOTICE);
             emit logappend(logstr);
 
-            if(openSFTP())
+            if(openSFTP() && commonvalues::SftpSocketConn == true)
             {
                 if(sendData())
                 {
                     if(sftp_session != NULL && sftp_handle != NULL)
                     {
                         LIBSSH2_SFTP_ATTRIBUTES attrs;
-                        if(libssh2_sftp_fstat_ex(sftp_handle, &attrs, 0) < 0)
+                        if(libssh2_sftp_fstat_ex((LIBSSH2_SFTP_HANDLE *)sftp_handle, &attrs, 0) < 0)
                         {
                             logstr = QString("SFTP : libssh2_sftp_fstat fail..");
                             log->write(logstr, LOG_NOTICE);
@@ -271,14 +275,10 @@ void SftpThrWorker::doWork()
                         }
                         else
                         {
-                            libssh2_sftp_seek64(sftp_handle, attrs.filesize);
+                            libssh2_sftp_seek64((LIBSSH2_SFTP_HANDLE *)sftp_handle, attrs.filesize);
                         }
 
-                        if(sftp_handle)
-                        {
-                            libssh2_sftp_close(sftp_handle);
-                            sftp_handle = nullptr;
-                        }
+                        closeSFTP();
 
                         if(attrs.filesize == file.size())
                         {
@@ -290,7 +290,7 @@ void SftpThrWorker::doWork()
                             const char* srcname = srcdata.data();
                             const char* dstname = dstdata.data();
 
-                            m_iSFTPRename = libssh2_sftp_rename(sftp_session, srcname, dstname);
+                            m_iSFTPRename = libssh2_sftp_rename((LIBSSH2_SFTP *)sftp_session, srcname, dstname);
 
                             if(m_iSFTPRename == 0)
                             {
@@ -315,7 +315,7 @@ void SftpThrWorker::doWork()
                                 cvt = noCharFileName.toLocal8Bit();
                                 const char* delfilename = cvt.data();
 
-                                libssh2_sftp_unlink(sftp_session, delfilename);
+                                libssh2_sftp_unlink((LIBSSH2_SFTP *)sftp_session, delfilename);
 
                                 logstr = QString("SFTP 동일 파일 삭제 : %1").arg(noCharFileName);
                                 log->write(logstr,LOG_NOTICE);
@@ -345,12 +345,16 @@ void SftpThrWorker::doWork()
 
                     isRetry = false;
                 }
+                else
+                {
+                    isRetry = true;
+                    emit remoteFileUpdate(NULL, NULL, QDateTime::currentDateTime(), false);
+                }
             }
             else
             {
                 isRetry = true;
                 emit remoteFileUpdate(NULL, NULL, QDateTime::currentDateTime(), false);
-                emit finished();
             }
         }
     }
@@ -378,51 +382,28 @@ bool SftpThrWorker::sshInit()
     return sshSuc;
 }
 
-bool SftpThrWorker::connectSocket()
-{
-    bool connectSock = true;
-    struct sockaddr_in sin;
-
-    sock = socket(AF_INET, SOCK_STREAM, 0);
-
-    sin.sin_family = AF_INET;
-    sin.sin_port = htons(22);
-    sin.sin_addr.s_addr = hostaddr;
-    if(::connect(sock, (struct sockaddr*)(&sin), sizeof(struct sockaddr_in)) != 0)
-    {
-        logstr = QString("SFTP : Socket 연결 실패..");
-        connectSock = false;
-    }
-    else
-    {
-        logstr = QString("SFTP : Socket 연결 성공!!");
-        connectSock = true;
-    }
-
-    log->write(logstr,LOG_NOTICE);
-    emit logappend(logstr);
-
-    return connectSock;
-}
-
 bool SftpThrWorker::initSession()
 {
     bool sessionSuc = true;
     int sessioninit = 0;
     int auth_pw = 1;
+    sock = m_socket->socketDescriptor();
 
     session = libssh2_session_init();
     if(!session)
     {
-        sessionSuc = false;
+        return false;
     }
 
-    libssh2_session_set_blocking(session, 1);
-    sessioninit = libssh2_session_handshake(session, sock);
-    if(sessioninit)
+    libssh2_session_set_blocking((LIBSSH2_SESSION *)session, 1);
+    sessioninit = libssh2_session_handshake((LIBSSH2_SESSION *)session, sock); //m_socket->socketDescriptor());
+    QThread::msleep(100);
+
+    if(sessioninit == LIBSSH2_ERROR_EAGAIN)
     {
         logstr = QString("SFTP : SSH Session 설정 실패..");
-        sessionSuc = false;
+        emit logappend(logstr);
+        return false;
     }
     else
     {
@@ -433,16 +414,16 @@ bool SftpThrWorker::initSession()
     log->write(logstr,LOG_NOTICE);
     emit logappend(logstr);
 
-    libssh2_hostkey_hash(session, LIBSSH2_HOSTKEY_HASH_SHA1);
+    libssh2_hostkey_hash((LIBSSH2_SESSION *)session, LIBSSH2_HOSTKEY_HASH_SHA1);
 
     if(auth_pw)
-    {
-        if(libssh2_userauth_password(session, username, password))
+    {        
+        QThread::msleep(100);
+        if(libssh2_userauth_password((LIBSSH2_SESSION *)session, username, password))
         {
             logstr = QString("SFTP : ID/PW 인증 실패..");
-            closeSession();
 
-            sessionSuc = false;
+            return false;
         }
         else
         {
@@ -459,7 +440,7 @@ bool SftpThrWorker::initSession()
 
 bool SftpThrWorker::initSFTP()
 {
-    sftp_session = libssh2_sftp_init(session);
+    sftp_session = libssh2_sftp_init((LIBSSH2_SESSION *)session);
 
     logstr = QString("SFTP : SFTP 초기화!!");
     log->write(logstr,LOG_NOTICE);
@@ -477,23 +458,28 @@ bool SftpThrWorker::openSFTP()
     cvt = Remotefilepath.toLocal8Bit();
     const char* _sftppath = cvt.data();
 
-    sftp_handle = libssh2_sftp_open(sftp_session, _sftppath,
-                                    LIBSSH2_FXF_WRITE | LIBSSH2_FXF_CREAT | LIBSSH2_FXF_TRUNC,
-                                    LIBSSH2_SFTP_S_IRUSR|LIBSSH2_SFTP_S_IWUSR|
-                                    LIBSSH2_SFTP_S_IRGRP|LIBSSH2_SFTP_S_IROTH);
+    closeSFTP();
 
-    if(!sftp_handle)
+    if(commonvalues::SftpSocketConn == true)
     {
-        logstr = QString("SFTP : SFTP 연결 실패!!");
-        closeSession();
+        sftp_handle = libssh2_sftp_open((LIBSSH2_SFTP *)sftp_session, _sftppath,
+                                        LIBSSH2_FXF_WRITE | LIBSSH2_FXF_CREAT | LIBSSH2_FXF_TRUNC,
+                                        LIBSSH2_SFTP_S_IRUSR|LIBSSH2_SFTP_S_IWUSR|
+                                        LIBSSH2_SFTP_S_IRGRP|LIBSSH2_SFTP_S_IROTH);
 
-        sftpSuc = false;
-    }
-    else
-    {
-        logstr = QString("SFTP : SFTP 연결 성공!!");
+        if(!sftp_handle)
+        {
+            logstr = QString("SFTP : SFTP 연결 실패!!");
+            closeSFTP();
 
-        sftpSuc = true;
+            sftpSuc = false;
+        }
+        else
+        {
+            logstr = QString("SFTP : SFTP 연결 성공!!");
+
+            sftpSuc = true;
+        }
     }
 
     log->write(logstr,LOG_NOTICE);
@@ -505,49 +491,76 @@ bool SftpThrWorker::openSFTP()
 bool SftpThrWorker::sendData()
 {
     bool sendSuc = false;
-    int sendcount = 0;
     char mem[2048*1536];
-    size_t nread;
-    char *ptr;
+    int rc;
+    int nByteRead;
+    int nByteWrite;
 
     // 파일 전송
-    do
+    try
     {
-        nread = fread(mem, 1, sizeof(mem), local);
-        if(nread <= 0)
-        {
-            // end of file
-            break;
-        }
-        ptr = mem;
+        nByteRead = fread(mem, 1, sizeof(mem), local);
+        nByteWrite = nByteRead;
 
         do
         {
-            // write data in a loop until we block
-            sendcount = libssh2_sftp_write(sftp_handle, ptr, nread);
-            if(sendcount < 0)
+            if(sftp_handle)
             {
-                break;
+                // write data in a loop until we block
+                rc = libssh2_sftp_write((LIBSSH2_SFTP_HANDLE *)sftp_handle, mem, nByteWrite);
+                QThread::msleep(100);
+
+                if(rc<0)
+                {
+                    logstr = QString("SFTP : sftp_write error (%1)!!").arg(rc);
+                    logappend(logstr);
+                    sendSuc = false;
+
+                    return sendSuc;
+                }
+                else
+                {
+                    //emit transferProgress(nByteRead - nByteWrite, nByteRead);
+                    nByteWrite -= rc;
+                }
+                QThread::msleep(10);
             }
             else
             {
-                ptr += sendcount;
-                nread -= sendcount;
+                logstr = QString("SFTP : sftp_handle error!!");
+                logappend(logstr);
+                sendSuc = false;
             }
-            QThread::msleep(10);
 
-        }while(nread);
+        }while(nByteWrite);
 
-        if(nread == 0)
+        if(nByteWrite == 0)
         {
+            logstr = QString("SFTP : %1 전송 성공!!").arg(sftp_SendFileInfo.filename);
+            logappend(logstr);
             sendSuc = true;
         }
         else
         {
+            logstr = QString("SFTP : %1 전송 실패..").arg(sftp_SendFileInfo.filename);
+            logappend(logstr);
             sendSuc = false;
         }
 
-    }while(sendcount > 0);
+    }
+    catch(exception ex)
+    {
+        logstr = QString("SFTP 파일 이상 : 예외처리 %1 %2 %3").arg(__FILE__).arg(__LINE__).arg(ex.what());
+        log->write(logstr,LOG_ERR);
+        sendSuc = false;
+    }
+    catch (...)
+    {
+        logstr = QString("SFTP 파일 이상 : 예외처리 %1 %2").arg(__FILE__).arg(__LINE__);
+        log->write(logstr,LOG_ERR);
+        sendSuc = false;
+    }
+
 
     return sendSuc;
 }
@@ -556,8 +569,8 @@ void SftpThrWorker::closeSFTP()
 {
     if(sftp_handle != nullptr)
     {
-        libssh2_sftp_close(sftp_handle);
-        libssh2_sftp_shutdown(sftp_session);
+        libssh2_sftp_close((LIBSSH2_SFTP_HANDLE *)sftp_handle);
+        libssh2_sftp_shutdown((LIBSSH2_SFTP *)sftp_session);
     }
 
     sftp_handle = nullptr;
@@ -566,8 +579,36 @@ void SftpThrWorker::closeSession()
 {
     if(session != nullptr)
     {
-        libssh2_session_disconnect(session, "Normal Shutdown");
-        libssh2_session_free(session);
+        libssh2_session_disconnect((LIBSSH2_SESSION *)session, "Normal Shutdown");
+        libssh2_session_free((LIBSSH2_SESSION *)session);
+    }
+
+    session = nullptr;
+}
+
+void SftpThrWorker::shutdown()
+{
+    if(sftp_handle)
+    {
+        libssh2_sftp_close((LIBSSH2_SFTP_HANDLE *)sftp_handle);
+        sftp_handle = nullptr;
+    }
+    if(sftp_session)
+    {
+        libssh2_sftp_shutdown((LIBSSH2_SFTP *)sftp_session);
+        sftp_session = nullptr;
+    }
+
+    libssh2_exit();
+
+    //mp_SftpStatic->Disconnect();
+
+    if(session != nullptr)
+    {
+        while(libssh2_session_disconnect((LIBSSH2_SESSION *)session, "Normal Shutdown")
+            == LIBSSH2_ERROR_EAGAIN);
+        libssh2_session_free((LIBSSH2_SESSION *)session);
+
     }
 
     session = nullptr;
@@ -741,7 +782,7 @@ bool SftpThrWorker::isLegalFileName(QString filename)
 void SftpThrWorker::remoteConnect()
 {
     emit remoteFileUpdate(NULL, NULL, QDateTime::currentDateTime(), false);
-    libssh2_sftp_closedir(sftp_handle);
+    libssh2_sftp_closedir((LIBSSH2_SFTP_HANDLE *)sftp_handle);
     sftp_handle = nullptr;
 
     LIBSSH2_SFTP_ATTRIBUTES attrs;
@@ -754,14 +795,14 @@ void SftpThrWorker::remoteConnect()
 
     if(sftp_session != nullptr)
     {
-        sftp_handle = libssh2_sftp_opendir(sftp_session, remotePath);
-        libssh2_sftp_fstat_ex(sftp_handle, &attrs, 0);
+        sftp_handle = libssh2_sftp_opendir((LIBSSH2_SFTP *)sftp_session, remotePath);
+        libssh2_sftp_fstat_ex((LIBSSH2_SFTP_HANDLE *)sftp_handle, &attrs, 0);
 
         if(sftp_handle != nullptr)
         {
             do
             {
-                rc = libssh2_sftp_readdir(sftp_handle, fname, sizeof(fname), &attrs);
+                rc = libssh2_sftp_readdir((LIBSSH2_SFTP_HANDLE *)sftp_handle, fname, sizeof(fname), &attrs);
                 if(rc > 0)
                 {
                     filename = QString("%1").arg(fname);
@@ -790,6 +831,6 @@ void SftpThrWorker::remoteConnect()
         emit logappend(logstr);
     }
 
-    libssh2_sftp_closedir(sftp_handle);
+    libssh2_sftp_closedir((LIBSSH2_SFTP_HANDLE *)sftp_handle);
     sftp_handle = nullptr;
 }

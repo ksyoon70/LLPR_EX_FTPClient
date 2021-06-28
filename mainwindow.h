@@ -11,6 +11,7 @@
 #include "deleteworker.h"
 #include "sftpthrworker.h"
 #include <QDate>
+#include <QTcpSocket>
 namespace Ui {
 class MainWindow;
 }
@@ -30,6 +31,7 @@ public:
     void init_mainthr();
     bool loglinecheck();
     void checkcenterstatus();
+    bool connectSocket(QString host, qint32 port);
 
 private slots:
     void centerdlgview();
@@ -49,6 +51,8 @@ private slots:
     void localFileUpdate(SendFileInfo *pItem);
     void loadProgress(qint64 bytesSent,qint64 bytesTotal);
     void remoteFileUpdate(QString rfname, QString rfsize, QDateTime rftime, bool isDir);
+    void disconnected();
+    void connected();
 
     void on_reRefreshButton_clicked();
 
@@ -68,6 +72,7 @@ private:
     ThreadWorker *mp_tWorker;
     QFtp *m_pftp;
     QHash<QString, bool> isDirectory;
+    QTcpSocket *m_socket;
 
     QString logpath;  //로그를 저장하는 패스
 

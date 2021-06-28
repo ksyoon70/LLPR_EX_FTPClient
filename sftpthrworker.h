@@ -7,6 +7,7 @@
 #include <QDirIterator>
 #include <iostream>
 #include <execinfo.h>
+#include <QTcpSocket>
 
 #include <libssh2.h>
 #include <libssh2_sftp.h>
@@ -21,7 +22,7 @@ class SftpThrWorker : public QObject
 {
     Q_OBJECT
 public:
-    explicit SftpThrWorker(QObject *parent = nullptr);
+    explicit SftpThrWorker(QTcpSocket *socket, QObject *parent = nullptr);
     QString SFTP_SEND_PATH;
 
 signals:
@@ -29,6 +30,7 @@ signals:
     void logappend(QString logstr);
     void localFileUpdate(SendFileInfo *sendFileInfo);
     void remoteFileUpdate(QString rfname, QString rfsize, QDateTime rftime, bool isDir);
+    void transferProgress(qint64 bytesSent, qint64 bytesTotal);
 
 public slots:
     void doWork();
@@ -45,13 +47,15 @@ public:
     const char *localfile;
     const char *sftppath;
     unsigned long hostaddr;
+    QTcpSocket *m_socket;
+    bool fd_flag;
     int sock;
     FILE *local;
 
     bool thread_run;
-    LIBSSH2_SESSION *session;
-    LIBSSH2_SFTP *sftp_session;
-    LIBSSH2_SFTP_HANDLE *sftp_handle;
+    LIBSSH2_SESSION volatile *session;
+    LIBSSH2_SFTP volatile *sftp_session;
+    LIBSSH2_SFTP_HANDLE volatile *sftp_handle;
 
     QString logstr;
     QString noCharFileName;
@@ -60,7 +64,8 @@ public:
     SendFileInfoList sftp_SendFileInfoList;
 
     bool sshInit();
-    bool connectSocket();
+    //bool connectSocket();
+    //bool connectToHost(QString host, qint32 port);
     bool initSession();
     bool initSFTP();
     bool openSFTP();
@@ -68,6 +73,7 @@ public:
 
     void closeSFTP();
     void closeSession();
+    void shutdown();
 
     void CopyFile(SendFileInfo data);
     void RefreshLocalFileList();
