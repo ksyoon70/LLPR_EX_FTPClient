@@ -16,6 +16,9 @@ namespace Ui {
 class MainWindow;
 }
 
+#define Program_Version  "LLPR_EX_FTPClient v1.1.0 (date: 2021/05/24)"
+#define FTP_BUFFER (3145728)
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -32,6 +35,10 @@ public:
     bool loglinecheck();
     void checkcenterstatus();
     bool connectSocket(QString host, qint32 port);
+    bool Sftp_Init_Session();
+    bool sshInit();
+    static MainWindow *getMainWinPtr();
+    //bool sftpput(QString local, QString remote);
 
 private slots:
     void centerdlgview();
@@ -55,9 +62,15 @@ private slots:
     void connected();
 
     void on_reRefreshButton_clicked();
+    int GetFirstNumPosFromFileName(QString filename);
+    bool sftpput(QString local, QString remote);
+
+protected:
+    void showEvent(QShowEvent *ev);
+    void showEventHelper();
 
 private:
-#define Program_Version  "LLPR_EX_FTPClient v1.1.0 (date: 2021/05/24)"
+
     Ui::MainWindow *ui;
 
     configdlg *pconfigdlg;
@@ -73,6 +86,9 @@ private:
     QFtp *m_pftp;
     QHash<QString, bool> isDirectory;
     QTcpSocket *m_socket;
+    LIBSSH2_SESSION volatile *mp_session;
+    LIBSSH2_SFTP volatile *mp_sftp_session;
+    LIBSSH2_SFTP_HANDLE volatile *mp_sftp_handle;
 
     QString logpath;  //로그를 저장하는 패스
 
@@ -85,6 +101,12 @@ private:
 
     QThread *mp_swThread;
     SftpThrWorker *mp_stWorker;
+    QString logstr;
+    int m_Auth_pw;
+
+    static MainWindow * pMainWindow;
+    char	*m_lpBuffer;
+
 };
 
 #endif // MAINWINDOW_H

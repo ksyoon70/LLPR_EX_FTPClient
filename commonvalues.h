@@ -26,7 +26,7 @@ public:
        static QString BackImagePath;
        static QString TransferType;
 
-       static bool SftpSocketConn;
+       static volatile bool SftpSocketConn;
 
        static int loglevel;
 };

@@ -22,7 +22,7 @@ class SftpThrWorker : public QObject
 {
     Q_OBJECT
 public:
-    explicit SftpThrWorker(QTcpSocket *socket, QObject *parent = nullptr);
+    explicit SftpThrWorker(QString host, qint32 port, QObject *parent = nullptr);
     QString SFTP_SEND_PATH;
 
 signals:
@@ -31,9 +31,12 @@ signals:
     void localFileUpdate(SendFileInfo *sendFileInfo);
     void remoteFileUpdate(QString rfname, QString rfsize, QDateTime rftime, bool isDir);
     void transferProgress(qint64 bytesSent, qint64 bytesTotal);
+    void sftpput(QString local, QString remote);
 
 public slots:
     void doWork();
+    void disconnected();
+    void connected();
 
 public:
     Syslogger *log;
@@ -50,11 +53,12 @@ public:
     QTcpSocket *m_socket;
     bool fd_flag;
     int sock;
-    FILE *local;
+    FILE *fp;
+    int m_Auth_pw;
 
     bool thread_run;
-    LIBSSH2_SESSION volatile *session;
-    LIBSSH2_SFTP volatile *sftp_session;
+    LIBSSH2_SESSION volatile **mpp_session;
+    LIBSSH2_SFTP volatile **mpp_sftp_session;
     LIBSSH2_SFTP_HANDLE volatile *sftp_handle;
 
     QString logstr;
@@ -66,10 +70,10 @@ public:
     bool sshInit();
     //bool connectSocket();
     //bool connectToHost(QString host, qint32 port);
-    bool initSession();
-    bool initSFTP();
+    //bool initSession();
+    //bool initSFTP();
     bool openSFTP();
-    bool sendData();
+    bool sendData(int size);
 
     void closeSFTP();
     void closeSession();
@@ -81,6 +85,9 @@ public:
     int GetFirstNumPosFromFileName(QString filename);
     bool isLegalFileName(QString filename);
     void remoteConnect();
+    bool connectSocket(QString host, qint32 port);
+    QString host;
+    qint32 port;
 };
 
 #endif // SFTPTHRWORKER_H
