@@ -127,9 +127,9 @@ void MainWindow::init()
 
         //QObject::connect(m_socket, SIGNAL(connected()), this, SLOT(connected()));
         //QObject::connect(m_socket, SIGNAL(disconnected()), this, SLOT(disconnected()));
-        QObject::connect(mp_stWorker->m_socket, SIGNAL(QAbstractSocket::connected()), this, SLOT(connected()),Qt::DirectConnection);
-        QObject::connect(mp_stWorker->m_socket, SIGNAL(QAbstractSocket::disconnected()), this, SLOT(disconnected()),Qt::DirectConnection);
-        QObject::connect(mp_stWorker, SIGNAL(sftpput(QString,QString)), this, SLOT(sftpput(QString,QString)));
+        QObject::connect(mp_stWorker->m_socket, SIGNAL(connected()), this, SLOT(connected()),Qt::DirectConnection);
+        QObject::connect(mp_stWorker->m_socket, SIGNAL(disconnected()), this, SLOT(disconnected()),Qt::DirectConnection);
+        //QObject::connect(mp_stWorker, SIGNAL(sftpput(QString,QString)), this, SLOT(sftpput(QString,QString)));
 
 
 
@@ -1070,23 +1070,23 @@ void MainWindow::connected()
 
     ui->remoteFileList->setEnabled(true);
     ui->reRefreshButton->setEnabled(true);
-    Sftp_Init_Session();
-    mp_swThread->start();
+    //Sftp_Init_Session();
+    //mp_swThread->start();
 }
 void MainWindow::disconnected()
 {
     commonvalues::center_list[0].status = false;
     commonvalues::SftpSocketConn = false;
 
-    QString logstr = QString("SFTP : Socket 연결 실패..");
+    QString logstr = QString("SFTP : Socket 연결 끊김..");
     logappend(logstr);
 
     ui->remoteFileList->clear();
     ui->remoteFileList->setEnabled(false);
     ui->reRefreshButton->setEnabled(false);
 
-    m_socket->disconnectFromHost();
-    m_socket->close();
+    //m_socket->disconnectFromHost();
+    //m_socket->close();
 }
 
 bool MainWindow::connectSocket(QString host, qint32 port)

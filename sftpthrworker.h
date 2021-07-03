@@ -17,12 +17,14 @@
 #include "threadworker.h"
 using namespace std;
 
+#define FTP_BUFFER (3145728)
 
 class SftpThrWorker : public QObject
 {
     Q_OBJECT
 public:
     explicit SftpThrWorker(QString host, qint32 port, QObject *parent = nullptr);
+     ~SftpThrWorker();
     QString SFTP_SEND_PATH;
 
 signals:
@@ -31,15 +33,15 @@ signals:
     void localFileUpdate(SendFileInfo *sendFileInfo);
     void remoteFileUpdate(QString rfname, QString rfsize, QDateTime rftime, bool isDir);
     void transferProgress(qint64 bytesSent, qint64 bytesTotal);
-    void sftpput(QString local, QString remote);
 
 public slots:
     void doWork();
     void disconnected();
     void connected();
+    bool sftpput(QString local, QString remote);
 
 public:
-    Syslogger *log;
+    Syslogger *plog;
     CenterInfo config;
     int m_iSFTPRename;
     int m_RetryInterval;
@@ -57,9 +59,9 @@ public:
     int m_Auth_pw;
 
     bool thread_run;
-    LIBSSH2_SESSION volatile **mpp_session;
-    LIBSSH2_SFTP volatile **mpp_sftp_session;
-    LIBSSH2_SFTP_HANDLE volatile *sftp_handle;
+    LIBSSH2_SESSION volatile *mp_session;
+    LIBSSH2_SFTP volatile *mp_sftp_session;
+    LIBSSH2_SFTP_HANDLE volatile *mp_sftp_handle;
 
     QString logstr;
     QString noCharFileName;
@@ -68,16 +70,14 @@ public:
     SendFileInfoList sftp_SendFileInfoList;
 
     bool sshInit();
-    //bool connectSocket();
-    //bool connectToHost(QString host, qint32 port);
-    //bool initSession();
+    bool Sftp_Init_Session();
     //bool initSFTP();
-    bool openSFTP();
+    //bool openSFTP();
     bool sendData(int size);
 
     void closeSFTP();
     void closeSession();
-    void shutdown();
+    bool SftpShutdown();
 
     void CopyFile(SendFileInfo data);
     void RefreshLocalFileList();
@@ -88,6 +88,8 @@ public:
     bool connectSocket(QString host, qint32 port);
     QString host;
     qint32 port;
+    char *m_lpBuffer;
+
 };
 
 #endif // SFTPTHRWORKER_H
