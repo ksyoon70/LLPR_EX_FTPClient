@@ -36,9 +36,8 @@ signals:
 
 public slots:
     void doWork();
-    void disconnected();
-    void connected();
-    bool sftpput(QString local, QString remote);
+    bool SftpShutdown();
+
 
 public:
     Syslogger *plog;
@@ -73,22 +72,21 @@ public:
     bool Sftp_Init_Session();
     //bool initSFTP();
     //bool openSFTP();
-    bool sendData(int size);
-
-    void closeSFTP();
-    void closeSession();
-    bool SftpShutdown();
-
     void CopyFile(SendFileInfo data);
     void RefreshLocalFileList();
     void ScanSendDataFiles();
     int GetFirstNumPosFromFileName(QString filename);
     bool isLegalFileName(QString filename);
-    void remoteConnect();
     bool connectSocket(QString host, qint32 port);
+    bool CloseSocket();
+    bool sftpput(QString local, QString remote);
+    void SetUpDateRemoteDir();
+    void remoteConnect();
+
     QString host;
     qint32 port;
     char *m_lpBuffer;
+    volatile bool m_updateRemoteDir;
 
 };
 

@@ -22,7 +22,8 @@
 #include "threadworker.h"
 #include "mainwindow.h"
 
-#define SFTP_TIMEOUT				(3000)
+#define SFTP_TIMEOUT				(1000)
+#define SFTP_UPLOAD_TIMEOUT         (10000)
 #define MAX_SFTP_OUTGOING_SIZE      (30000)
 
 SftpThrWorker::SftpThrWorker(QString host, qint32 port,QObject *parent) : QObject(parent)
@@ -72,6 +73,8 @@ SftpThrWorker::SftpThrWorker(QString host, qint32 port,QObject *parent) : QObjec
 
      m_lpBuffer = new char[FTP_BUFFER + 1];
 
+     m_updateRemoteDir = false;
+
 
 }
 SftpThrWorker::~SftpThrWorker()
@@ -100,13 +103,7 @@ void SftpThrWorker::doWork()
 
     sshInit();
 
-    //m_socket = new QTcpSocket();
-
-
-    //QObject::connect(m_socket, SIGNAL(QAbstractSocket::connected()), this, SLOT(connected()));
-    //QObject::connect(m_socket, SIGNAL(QAbstractSocket::disconnected()), this, SLOT(disconnected()));
-
-    connectSocket(this->host, this->port);
+    //connectSocket(this->host, this->port);
 
     while(thread_run)
     {
@@ -122,6 +119,10 @@ void SftpThrWorker::doWork()
                     QThread::msleep(3000);
                     continue;
                 }
+                else
+                {
+                    remoteConnect();
+                }
             }
         }
         else
@@ -132,25 +133,28 @@ void SftpThrWorker::doWork()
             continue;
         }
 
-        lastFilename = curFilename;
-        ScanSendDataFiles();
-        sftp_SendFileInfo = sftp_SendFileInfoList.GetFirstFile();
-        curFilename = QString(sftp_SendFileInfo.filename);
-        if(QString::compare(lastFilename,curFilename) != 0)
+        //끊어졌는지를 감지한다.
+        m_socket->waitForReadyRead(10);
+
+        if(m_updateRemoteDir == true)
         {
-            RefreshLocalFileList();
+            remoteConnect();
         }
 
+        ScanSendDataFiles();
         if(sftp_SendFileInfoList.Count() == 0)
         {
             ScanSendDataFiles();
             QThread::msleep(500);
-
-            if(sftp_SendFileInfoList.Count() == 0)
-                continue;
+            continue;
         }
-        else if(sftp_SendFileInfoList.Count() > 0)
+        else
         {
+
+            sftp_SendFileInfo = sftp_SendFileInfoList.GetFirstFile();
+            curFilename = QString(sftp_SendFileInfo.filename);
+            RefreshLocalFileList();
+
             if(sftp_SendFileInfo.filename.isNull() || sftp_SendFileInfo.filename.isEmpty())
             {
                 QThread::msleep(50);
@@ -159,7 +163,7 @@ void SftpThrWorker::doWork()
 
             if(isRetry)
             {
-                if(lastTime.secsTo(QDateTime::currentDateTime()) < m_RetryInterval)
+                if(lastTime.msecsTo(QDateTime::currentDateTime()) < m_RetryInterval)
                 {
                     QThread::msleep(10);
                     continue;
@@ -240,31 +244,19 @@ void SftpThrWorker::doWork()
             if(!fp)
             {
                 logstr = QString("SFTP : 파일 열기 실패..");
+                plog->write(logstr,LOG_NOTICE);
+                emit logappend(logstr);
                 continue;
             }
-            else
-            {
-                logstr = QString("SFTP : 파일 열기 성공!!");
-            }
-
-            plog->write(logstr,LOG_NOTICE);
-            emit logappend(logstr);
-
             if(sftpput(sftp_SendFileInfo.filename,sftp_SendFileInfo.filename))
             {
 
                 sftp_SendFileInfoList.RemoveFirstFile(sftp_SendFileInfo);
 
-                if(lastCount != sftp_SendFileInfoList.Count())
-                {
-                    lastCount = sftp_SendFileInfoList.Count();
-                    logstr = QString("SFTP 전송 파일 리스트 : %1").arg(lastCount);
-                    plog->write(logstr, LOG_NOTICE);
-                    emit logappend(logstr);
-
-
-
-                }
+                lastCount = sftp_SendFileInfoList.Count();
+                logstr = QString("SFTP 전송 파일 리스트 : %1").arg(lastCount);
+                plog->write(logstr, LOG_NOTICE);
+                emit logappend(logstr);
 
                  QThread::msleep(100);
 
@@ -279,11 +271,11 @@ void SftpThrWorker::doWork()
 
             }
 
-
+            RefreshLocalFileList();
         }  //파일이 있는 경우
     }
 }
-
+#if 0
 void SftpThrWorker::disconnected()
 {
 
@@ -293,6 +285,7 @@ void SftpThrWorker::connected()
 {
 
 }
+#endif
 bool SftpThrWorker::sshInit()
 {
     bool sshSuc = true;
@@ -315,7 +308,7 @@ bool SftpThrWorker::sshInit()
 
     return sshSuc;
 }
-#if 1
+
 bool SftpThrWorker::Sftp_Init_Session()
 {   
 
@@ -333,8 +326,9 @@ bool SftpThrWorker::Sftp_Init_Session()
 
     try {
 
-        libssh2_session_set_blocking((LIBSSH2_SESSION *)mp_session, 1);
-
+        libssh2_session_set_blocking((LIBSSH2_SESSION *)mp_session, 0);
+        //long timeout = libssh2_session_get_timeout((LIBSSH2_SESSION *)mp_session);
+        libssh2_session_set_timeout((LIBSSH2_SESSION *)mp_session,SFTP_UPLOAD_TIMEOUT);
         QDateTime old2 = QDateTime::currentDateTime();
         QDateTime now2 = old2;
 
@@ -344,7 +338,7 @@ bool SftpThrWorker::Sftp_Init_Session()
             now2 = QDateTime::currentDateTime();
 
             QThread::msleep(10);
-            if(((old2.secsTo(now2)) >= SFTP_TIMEOUT) || (sock == 0))
+            if(((old2.msecsTo(now2)) >= SFTP_TIMEOUT) || (sock == 0))
             {
                 rc = 1;
                 break;
@@ -379,7 +373,7 @@ bool SftpThrWorker::Sftp_Init_Session()
                     LIBSSH2_ERROR_EAGAIN)
                 {
                     now1 = QDateTime::currentDateTime();
-                    if((old1.secsTo(now1)) >= SFTP_TIMEOUT)
+                    if((old1.msecsTo(now1)) >= SFTP_TIMEOUT)
                     {
                         rc = 1;
                         break;
@@ -405,7 +399,7 @@ bool SftpThrWorker::Sftp_Init_Session()
                         }
                         QThread::msleep(10);
                         now = QDateTime::currentDateTime();
-                    } while(!mp_sftp_session && ((old.secsTo(now)) < SFTP_TIMEOUT));
+                    } while(!mp_sftp_session && ((old.msecsTo(now)) < SFTP_TIMEOUT));
 
                 }
             }
@@ -445,65 +439,11 @@ bool SftpThrWorker::Sftp_Init_Session()
 
     return status;
 }
-#endif
-#if 0
-bool SftpThrWorker::initSFTP()
-{
-    mpp_sftp_session = libssh2_sftp_init((LIBSSH2_SESSION *)mpp_session);
 
-    logstr = QString("SFTP : SFTP 초기화!!");
-    log->write(logstr,LOG_NOTICE);
-    emit logappend(logstr);
-
-    return true;
-}
-#endif
-#if 0
-bool SftpThrWorker::openSFTP()
-{
-    bool sftpSuc = false;
-
-    QString Remotefilepath = QString("%1/%2").arg(config.ftpPath).arg(noCharFileName);
-    QByteArray cvt;
-    cvt = Remotefilepath.toLocal8Bit();
-    const char* _sftppath = cvt.data();
-
-    //closeSFTP();
-
-    if(commonvalues::SftpSocketConn == true)
-    {
-        sftp_handle = libssh2_sftp_open((LIBSSH2_SFTP *)*mpp_sftp_session, _sftppath,
-                                        LIBSSH2_FXF_WRITE | LIBSSH2_FXF_CREAT | LIBSSH2_FXF_APPEND | LIBSSH2_FXF_TRUNC,
-                                        LIBSSH2_SFTP_S_IRUSR|LIBSSH2_SFTP_S_IWUSR|
-                                        LIBSSH2_SFTP_S_IRGRP|LIBSSH2_SFTP_S_IROTH);
-
-        if(!sftp_handle)
-        {
-            logstr = QString("SFTP : SFTP 연결 실패!!");
-            closeSFTP();
-
-            sftpSuc = false;
-        }
-        else
-        {
-            logstr = QString("SFTP : SFTP 연결 성공!!");
-
-            sftpSuc = true;
-        }
-    }
-
-    log->write(logstr,LOG_NOTICE);
-    emit logappend(logstr);
-
-    return sftpSuc;
-}
-#endif
 bool SftpThrWorker::sftpput(QString local, QString remote)
 {
     int32_t	nByteRead;
-    uint32_t dwNumberOfBytesWritten = 0;
     uint32_t	fileLength, nSumOfnByteRead;
-    bool	canceled = false;
     QString errMsg;
     QString tmpRemote;
     QString renamedRemoteFullPath;		//원격 전체 path
@@ -542,8 +482,8 @@ bool SftpThrWorker::sftpput(QString local, QString remote)
             do {
                 mp_sftp_handle =
                     libssh2_sftp_open((LIBSSH2_SFTP *)mp_sftp_session , renamedRemoteFullPath.toUtf8().constData(),
-                    LIBSSH2_FXF_WRITE|LIBSSH2_FXF_CREAT|LIBSSH2_FXF_APPEND | LIBSSH2_FXF_EXCL,
-                    //LIBSSH2_FXF_TRUNC,
+                    LIBSSH2_FXF_WRITE|LIBSSH2_FXF_CREAT|LIBSSH2_FXF_APPEND |
+                    LIBSSH2_FXF_TRUNC,
                     LIBSSH2_SFTP_S_IRUSR|LIBSSH2_SFTP_S_IWUSR|
                     LIBSSH2_SFTP_S_IRGRP|LIBSSH2_SFTP_S_IROTH);
                 if(!mp_sftp_handle &&
@@ -588,11 +528,11 @@ bool SftpThrWorker::sftpput(QString local, QString remote)
                             nByteWrite = nByteRead;
                             QDateTime old = QDateTime::currentDateTime();
                             QDateTime now = old;
+                            emit transferProgress(0,100);
                             do {
                                 /* write data in a loop until we block */
                                 int max_size = qMin(MAX_SFTP_OUTGOING_SIZE,nByteWrite);
                                 rc = libssh2_sftp_write((LIBSSH2_SFTP_HANDLE *)mp_sftp_handle, &m_lpBuffer[nSumOfnByteRead], max_size);
-                                //rc = libssh2_sftp_write((LIBSSH2_SFTP_HANDLE *)mp_sftp_handle, &m_lpBuffer[nSumOfnByteRead], nByteWrite);
                                 if(rc < 0)
                                 {
                                 }
@@ -604,16 +544,19 @@ bool SftpThrWorker::sftpput(QString local, QString remote)
                                     {
                                         nByteWrite = 0;
                                     }
+
+                                    emit transferProgress(nSumOfnByteRead*100/nByteRead,100);
                                 }
                                 QThread::msleep(10);
                                 now = QDateTime::currentDateTime();
-                            } while(nByteWrite && ((old.secsTo(now)) < SFTP_TIMEOUT));
-                            //}while(nByteWrite);
+                            } while(nByteWrite && ((old.msecsTo(now)) < SFTP_UPLOAD_TIMEOUT));
 
                     }
                     catch(...)
                     {
-                        //SftpShutdown();
+                        logstr = QString("sftp 송신중 예외 발생.");
+                        plog->write(logstr,LOG_NOTICE);
+                        emit logappend(logstr);
                         return false;
                     }
 
@@ -671,7 +614,7 @@ bool SftpThrWorker::sftpput(QString local, QString remote)
                     rc = libssh2_sftp_fstat_ex((LIBSSH2_SFTP_HANDLE *)mp_sftp_handle, &attrs, 0);
                     QThread::msleep(10);
                     now = QDateTime::currentDateTime();
-                } while((rc < 0) && ((old.secsTo(now)) < SFTP_TIMEOUT));
+                } while((rc < 0) && ((old.msecsTo(now)) < SFTP_TIMEOUT));
 
                 if(rc < 0) {
                     logstr = QString("libssh2_sftp_fstat_ex failed.");
@@ -696,7 +639,7 @@ bool SftpThrWorker::sftpput(QString local, QString remote)
                             rc = libssh2_sftp_rename((LIBSSH2_SFTP *)mp_sftp_session,renamedRemoteFullPath.toUtf8().constData(),remoteFullPath.toUtf8().constData());
                             QThread::msleep(10);
                             now = QDateTime::currentDateTime();
-                        } while((rc < 0) && ((old.secsTo(now)) < SFTP_TIMEOUT));
+                        } while((rc < 0) && ((old.msecsTo(now)) < SFTP_TIMEOUT));
 
                         if(rc < 0)
                         {
@@ -715,12 +658,12 @@ bool SftpThrWorker::sftpput(QString local, QString remote)
                             //이미 서버에 같은 파일이 있고 파일의 크기가 동일하면 성공한 것으로 본다.
                             if(attrs.filesize == fileLength)
                             {
-                                canceled = false;
+                                status = true;
 
                             }
                             else
                             {
-                                canceled = true;
+                                status = false;
                             }
 
                             //해당 파일을 삭제 한다.
@@ -730,28 +673,30 @@ bool SftpThrWorker::sftpput(QString local, QString remote)
                                 rc = libssh2_sftp_unlink((LIBSSH2_SFTP *)mp_sftp_session,renamedRemoteFullPath.toUtf8().constData());
                                 QThread::msleep(10);
                                 now = QDateTime::currentDateTime();
-                            } while((rc < 0) && ((old.secsTo(now)) < SFTP_TIMEOUT));
+                            } while((rc < 0) && ((old.msecsTo(now)) < SFTP_TIMEOUT));
 
                         }
                         else
                         {
                             //파일 이름 변경에 성공 하였다.
-                            canceled = false;
+                            status = true;
                         }
 
 
                     }
                     else
                     {
-                        canceled = true;
+                        status = false;
                     }
                 }
             }
             catch(...)
             {
                 // 이상한 파일은 전송하지 않는다.
-                //::PostMessage(this->GetSafeHwnd(),JWWM_FTP_CALLBACK,CON_STATE_DATA_SENDING, (LPARAM)0);
-                canceled = false;
+                logstr = QString("sftpput : 예외처리 %1 %2").arg(__FILE__).arg(__LINE__);
+                plog->write(logstr,LOG_ERR);
+                emit logappend(logstr);
+                status = false;
             }
         }
         else
@@ -759,6 +704,7 @@ bool SftpThrWorker::sftpput(QString local, QString remote)
             logstr = QString("원격지에 파일을 쓸 수 없읍니다.");
             plog->write(logstr,LOG_NOTICE);
             emit logappend(logstr);
+            status = false;
         }
 
     }
@@ -766,7 +712,7 @@ bool SftpThrWorker::sftpput(QString local, QString remote)
         logstr = QString("원격지에 파일을 쓸 수 없읍니다.");
         plog->write(logstr,LOG_NOTICE);
         emit logappend(logstr);
-        canceled = true;
+        status = false;
     }
 
     if(mp_sftp_handle)
@@ -774,108 +720,13 @@ bool SftpThrWorker::sftpput(QString local, QString remote)
         libssh2_sftp_close((LIBSSH2_SFTP_HANDLE *)mp_sftp_handle);
         mp_sftp_handle = NULL;
     }
-    if(canceled)
-        return false;
-    else
-        return true;
-}
-bool SftpThrWorker::sendData(int size)
-{
-    bool status = false;
-    //char mem[2048*1536];
-    char *pbuf = new char[2048*1536];
-    int rc = 0;
-    int sum = 0;
-    int nByteRead;
-    int nByteWrite;
-
-    // 파일 전송
-    try
-    {
-        nByteRead = fread(pbuf, 1, size, fp);
-        nByteWrite = nByteRead;
-
-        QDateTime old = QDateTime::currentDateTime();
-        QDateTime now = old;
-        do
-        {
-                // write data in a loop until we block
-                rc = libssh2_sftp_write((LIBSSH2_SFTP_HANDLE *)mp_sftp_handle, reinterpret_cast<char*>(pbuf + sum), qMin(MAX_SFTP_OUTGOING_SIZE,nByteWrite));
-
-                if(rc<0)
-                {
-                    //logstr = QString("SFTP : sftp_write error (%1)!!").arg(rc);
-                    //logappend(logstr);
-                    status = false;
-
-                    delete [] pbuf;
-
-                    return status;
-                }
-                else
-                {
-                    //emit transferProgress(nByteRead - nByteWrite, nByteRead);
-                    nByteWrite -=  rc;
-                    sum += rc;
-                }
-                QThread::msleep(10);
-                now = QDateTime::currentDateTime();
-
-        //}while(nByteWrite && (old.secsTo(now) < SFTP_TIMEOUT));
-          }while(nByteWrite);
-
-        if(nByteWrite == 0)
-        {
-            logstr = QString("SFTP : %1 전송 성공!!").arg(sftp_SendFileInfo.filename);
-            logappend(logstr);
-            status = true;
-        }
-        else
-        {
-            logstr = QString("SFTP : %1 전송 실패..").arg(sftp_SendFileInfo.filename);
-            logappend(logstr);
-            status = false;
-        }
-
-    }
-    catch(exception ex)
-    {
-        logstr = QString("SFTP 파일 이상 : 예외처리 %1 %2 %3").arg(__FILE__).arg(__LINE__).arg(ex.what());
-        plog->write(logstr,LOG_ERR);
-        status = false;
-    }
-    catch (...)
-    {
-        logstr = QString("SFTP 파일 이상 : 예외처리 %1 %2").arg(__FILE__).arg(__LINE__);
-        plog->write(logstr,LOG_ERR);
-        status = false;
-    }
-
-    //fclose(local);
-
-    delete [] pbuf;
 
     return status;
 }
 
-void SftpThrWorker::closeSFTP()
+void SftpThrWorker::SetUpDateRemoteDir()
 {
-    if(mp_sftp_handle != nullptr)
-    {
-        libssh2_sftp_close((LIBSSH2_SFTP_HANDLE *)mp_sftp_handle);
-    }
-
-    mp_sftp_handle = nullptr;
-}
-void SftpThrWorker::closeSession()
-{
-    if(mp_session != nullptr)
-    {
-        libssh2_session_disconnect((LIBSSH2_SESSION *)mp_session, "Normal Shutdown");
-        libssh2_session_free((LIBSSH2_SESSION *)mp_session);
-    }
-
-    mp_session = nullptr;
+    m_updateRemoteDir = true;
 }
 
 bool SftpThrWorker::SftpShutdown()
@@ -902,6 +753,12 @@ bool SftpThrWorker::SftpShutdown()
     }
 
     mp_session = nullptr;
+
+    CloseSocket();
+
+    logstr = QString("sftp 동작 이상 : 초기화");
+    plog->write(logstr,LOG_NOTICE);
+    emit logappend(logstr);
 
     return true;
 }
@@ -1073,28 +930,43 @@ bool SftpThrWorker::isLegalFileName(QString filename)
 
 void SftpThrWorker::remoteConnect()
 {
+    m_updateRemoteDir = false;
     emit remoteFileUpdate(NULL, NULL, QDateTime::currentDateTime(), false);
-    libssh2_sftp_closedir((LIBSSH2_SFTP_HANDLE *)mp_sftp_handle);
-    mp_sftp_handle = nullptr;
-
+    if(mp_sftp_handle != nullptr)
+    {
+        libssh2_sftp_closedir((LIBSSH2_SFTP_HANDLE *)mp_sftp_handle);
+        mp_sftp_handle = nullptr;
+    }
     LIBSSH2_SFTP_ATTRIBUTES attrs;
-    int rc;
+    int rc = 0;
     char fname[512];
     QString filename;
     QString filesize;
-    const char *remotePath;
-    remotePath= config.ftpPath.toStdString().c_str();
+    QString remotePath;
+    remotePath= config.ftpPath;
 
+    libssh2_session_set_blocking((LIBSSH2_SESSION *)mp_session, 1);
     if(mp_sftp_session != nullptr)
     {
-        mp_sftp_handle = libssh2_sftp_opendir((LIBSSH2_SFTP *)mp_sftp_session, remotePath);
-        libssh2_sftp_fstat_ex((LIBSSH2_SFTP_HANDLE *)mp_sftp_handle, &attrs, 0);
+        /* Request a dir listing via SFTP */
+        do {
+            mp_sftp_handle = libssh2_sftp_opendir((LIBSSH2_SFTP *)mp_sftp_session, remotePath.toUtf8().constData());
+
+            if((!mp_sftp_handle) && (libssh2_session_last_errno((LIBSSH2_SESSION *)mp_session) !=
+                LIBSSH2_ERROR_EAGAIN)) {
+                    fprintf(stderr, "Unable to open dir with SFTP\n");
+                    return;
+            }
+        } while(!mp_sftp_handle);
 
         if(mp_sftp_handle != nullptr)
         {
             do
             {
-                rc = libssh2_sftp_readdir((LIBSSH2_SFTP_HANDLE *)mp_sftp_handle, fname, sizeof(fname), &attrs);
+                while((rc = libssh2_sftp_readdir((LIBSSH2_SFTP_HANDLE *)mp_sftp_handle, fname, sizeof(fname),
+                                                 &attrs)) == LIBSSH2_ERROR_EAGAIN) {
+                    ;
+                }
                 if(rc > 0)
                 {
                     filename = QString("%1").arg(fname);
@@ -1104,8 +976,11 @@ void SftpThrWorker::remoteConnect()
 
                     emit remoteFileUpdate(filename, filesize, qdate, isDir);
                 }
-                else
-                {
+                else if(rc == LIBSSH2_ERROR_EAGAIN) {
+                    /* blocking */
+                    fprintf(stderr, "Blocking\n");
+                }
+                else {
                     break;
                 }
             }
@@ -1123,8 +998,13 @@ void SftpThrWorker::remoteConnect()
         emit logappend(logstr);
     }
 
-    libssh2_sftp_closedir((LIBSSH2_SFTP_HANDLE *)mp_sftp_handle);
-    mp_sftp_handle = nullptr;
+    if(mp_sftp_handle != nullptr)
+    {
+        libssh2_sftp_closedir((LIBSSH2_SFTP_HANDLE *)mp_sftp_handle);
+        mp_sftp_handle = nullptr;
+    }
+     libssh2_session_set_blocking((LIBSSH2_SESSION *)mp_session, 0);
+
 }
 
 bool SftpThrWorker::connectSocket(QString host, qint32 port)
@@ -1149,4 +1029,17 @@ bool SftpThrWorker::connectSocket(QString host, qint32 port)
     }
 
     return connectState;
+}
+
+bool SftpThrWorker::CloseSocket()
+{
+    if(m_socket != nullptr)
+    {
+        m_socket->close();
+
+        commonvalues::center_list[0].status = false;
+        commonvalues::SftpSocketConn = false;
+    }
+
+    return true;
 }

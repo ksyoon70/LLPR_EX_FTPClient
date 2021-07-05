@@ -18,7 +18,7 @@ class MainWindow;
 
 #define Program_Version  "LLPR_EX_FTPClient v1.1.0 (date: 2021/05/24)"
 #define FTP_BUFFER (3145728)
-
+//#define SSH_WATCH
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -34,11 +34,11 @@ public:
     void init_mainthr();
     bool loglinecheck();
     void checkcenterstatus();
-    bool connectSocket(QString host, qint32 port);
-    bool Sftp_Init_Session();
-    bool sshInit();
     static MainWindow *getMainWinPtr();
-    //bool sftpput(QString local, QString remote);
+
+signals:
+    bool SocketShutdown();
+    void remoteUpdateDir();   //원격 디렉토리 업데이트 시그널
 
 private slots:
     void centerdlgview();
@@ -60,10 +60,9 @@ private slots:
     void remoteFileUpdate(QString rfname, QString rfsize, QDateTime rftime, bool isDir);
     void disconnected();
     void connected();
-
+    void stateChanged(QAbstractSocket::SocketState);
+    void socketError(QAbstractSocket::SocketError);
     void on_reRefreshButton_clicked();
-    int GetFirstNumPosFromFileName(QString filename);
-    bool sftpput(QString local, QString remote);
 
 protected:
     void showEvent(QShowEvent *ev);
@@ -85,10 +84,6 @@ private:
     ThreadWorker *mp_tWorker;
     QFtp *m_pftp;
     QHash<QString, bool> isDirectory;
-    QTcpSocket *m_socket;
-    LIBSSH2_SESSION volatile *mp_session;
-    LIBSSH2_SFTP volatile *mp_sftp_session;
-    LIBSSH2_SFTP_HANDLE volatile *mp_sftp_handle;
 
     QString logpath;  //로그를 저장하는 패스
 
@@ -106,6 +101,10 @@ private:
 
     static MainWindow * pMainWindow;
     char	*m_lpBuffer;
+#ifdef SSH_WATCH
+    bool transStrart;
+    QDateTime transStartTime;
+#endif
 
 };
 
