@@ -42,8 +42,6 @@ public slots:
 public:
     Syslogger *plog;
     CenterInfo config;
-    int m_iSFTPRename;
-    int m_RetryInterval;
     const int MAXSFTPCOUNT = 10;
 
     const char *username;
@@ -54,7 +52,6 @@ public:
     QTcpSocket *m_socket;
     bool fd_flag;
     int sock;
-    FILE *fp;
     int m_Auth_pw;
 
     bool thread_run;
@@ -70,8 +67,6 @@ public:
 
     bool sshInit();
     bool Sftp_Init_Session();
-    //bool initSFTP();
-    //bool openSFTP();
     void CopyFile(SendFileInfo data);
     void RefreshLocalFileList();
     void ScanSendDataFiles();
@@ -87,6 +82,8 @@ public:
     qint32 port;
     char *m_lpBuffer;
     volatile bool m_updateRemoteDir;
+    QDateTime startTick;
+    QDateTime endTick;
 
 };
 

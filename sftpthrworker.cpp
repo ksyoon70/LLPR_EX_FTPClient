@@ -35,9 +35,6 @@ SftpThrWorker::SftpThrWorker(QString host, qint32 port,QObject *parent) : QObjec
          sdir.mkpath(SFTP_SEND_PATH);
     }
 
-    m_iSFTPRename = 0;
-    m_RetryInterval = 5;
-
     m_Auth_pw = 1;
 
     config = commonvalues::center_list.value(0);
@@ -86,8 +83,6 @@ SftpThrWorker::~SftpThrWorker()
 void SftpThrWorker::doWork()
 {
     int lastCount = 0;
-    bool isRetry = false;
-    QDateTime lastTime = QDateTime::currentDateTime().addDays(-1);
 
     QString lastFilename;
     QString curFilename;
@@ -103,176 +98,187 @@ void SftpThrWorker::doWork()
 
     sshInit();
 
-    //connectSocket(this->host, this->port);
+    connectSocket(this->host, this->port);
 
     while(thread_run)
     {
-        if(commonvalues::SftpSocketConn == true)
-        {
-            if(mp_session == nullptr)
+
+        try {
+
+            if(commonvalues::SftpSocketConn == true)
             {
-                if(!Sftp_Init_Session())
+                if(mp_session == nullptr)
                 {
-                    SftpShutdown();
-                    logstr = QString("Session fail");
-                    emit logappend(logstr);
-                    QThread::msleep(3000);
-                    continue;
+                    if(!Sftp_Init_Session())
+                    {
+                        SftpShutdown();
+                        logstr = QString("Session fail");
+                        emit logappend(logstr);
+                        QThread::msleep(3000);
+                        continue;
+                    }
+                    else
+                    {
+                        remoteConnect();
+                    }
                 }
-                else
-                {
-                    remoteConnect();
-                }
-            }
-        }
-        else
-        {
-
-            connectSocket(this->host, this->port);
-            QThread::msleep(3000);
-            continue;
-        }
-
-        //끊어졌는지를 감지한다.
-        m_socket->waitForReadyRead(10);
-
-        if(m_updateRemoteDir == true)
-        {
-            remoteConnect();
-        }
-
-        ScanSendDataFiles();
-        if(sftp_SendFileInfoList.Count() == 0)
-        {
-            ScanSendDataFiles();
-            QThread::msleep(500);
-            continue;
-        }
-        else
-        {
-
-            sftp_SendFileInfo = sftp_SendFileInfoList.GetFirstFile();
-            curFilename = QString(sftp_SendFileInfo.filename);
-            RefreshLocalFileList();
-
-            if(sftp_SendFileInfo.filename.isNull() || sftp_SendFileInfo.filename.isEmpty())
-            {
-                QThread::msleep(50);
-                continue;
-            }
-
-            if(isRetry)
-            {
-                if(lastTime.msecsTo(QDateTime::currentDateTime()) < m_RetryInterval)
-                {
-                    QThread::msleep(10);
-                    continue;
-                }
-            }
-
-            QByteArray cvt;
-            QString fpath = QString("%1/%2/").arg(SFTP_SEND_PATH).arg(config.centername);
-
-            lastTime = QDateTime::currentDateTime();
-            QFile file(sftp_SendFileInfo.filepath);
-            if(!file.open(QIODevice::ReadOnly))
-            {
-                continue;
-            }
-
-            //파일 싸이즈가 0이면 삭제한다.
-            if(file.size() == 0)
-            {
-                // 2초간 기다려본다.
-                QThread::msleep(2000);
-                try {
-
-                    file.close();
-                    logstr = QString("SFTP : 파일 크기 에러(0)-->삭제: %1").arg(sftp_SendFileInfo.filename);
-                    plog->write(logstr,LOG_NOTICE); //qDebug() << logstr;
-                    emit logappend(logstr);
-                    sftp_SendFileInfoList.RemoveFirstFile(sftp_SendFileInfo);
-                }
-                catch (exception ex)
-                {
-                    #ifdef QT_QML_DEBUG
-                    qDebug() << ex.what();
-                    #endif
-                    logstr = QString("SFTP : 파일 크기 에러(0)-->삭제: 예외처리 %1 %2 %3").arg(__FILE__).arg(__LINE__).arg(ex.what());
-                    plog->write(logstr,LOG_ERR);
-                }
-                catch (...) {
-
-                    logstr = QString("SFTP : 파일 크기 에러(0)-->삭제: 예외처리 %1 %2").arg(__FILE__).arg(__LINE__);
-                    plog->write(logstr,LOG_ERR);
-
-                }
-                continue;
-            }
-
-            fpath.append(sftp_SendFileInfo.filename);
-            cvt = fpath.toLocal8Bit();
-            localfile = cvt.data();
-
-            fp = fopen(localfile, "rb");
-
-            if(!isLegalFileName(sftp_SendFileInfo.filename))
-            {
-                try
-                {
-                    file.close();
-                    logstr = QString("파일이름 이상-->삭제: %1").arg(sftp_SendFileInfo.filename);
-                    plog->write(logstr, LOG_NOTICE);
-                    emit logappend(logstr);
-                    sftp_SendFileInfoList.RemoveFirstFile(sftp_SendFileInfo);
-                }
-                catch(exception ex)
-                {
-                    logstr = QString("파일이름 이상-->삭제: 예외처리 %1 %2 %3").arg(__FILE__).arg(__LINE__).arg(ex.what());
-                    plog->write(logstr,LOG_ERR);
-                }
-                catch (...)
-                {
-                    logstr = QString("파일이름 이상-->삭제: 예외처리 %1 %2").arg(__FILE__).arg(__LINE__);
-                    plog->write(logstr,LOG_ERR);
-                }
-
-                QThread::msleep(100);
-                continue;
-            }
-
-            if(!fp)
-            {
-                logstr = QString("SFTP : 파일 열기 실패..");
-                plog->write(logstr,LOG_NOTICE);
-                emit logappend(logstr);
-                continue;
-            }
-            if(sftpput(sftp_SendFileInfo.filename,sftp_SendFileInfo.filename))
-            {
-
-                sftp_SendFileInfoList.RemoveFirstFile(sftp_SendFileInfo);
-
-                lastCount = sftp_SendFileInfoList.Count();
-                logstr = QString("SFTP 전송 파일 리스트 : %1").arg(lastCount);
-                plog->write(logstr, LOG_NOTICE);
-                emit logappend(logstr);
-
-                 QThread::msleep(100);
-
-                isRetry = false;
             }
             else
             {
-                isRetry = true;
-                emit remoteFileUpdate(NULL, NULL, QDateTime::currentDateTime(), false);
-                SftpShutdown();
-                QThread::msleep(3000);
 
+                connectSocket(this->host, this->port);
+                QThread::msleep(3000);
+                continue;
             }
 
-            RefreshLocalFileList();
-        }  //파일이 있는 경우
+            //끊어졌는지를 감지한다.
+            m_socket->waitForReadyRead(10);
+
+            if(m_updateRemoteDir == true)
+            {
+                remoteConnect();
+            }
+
+            ScanSendDataFiles();
+            if(sftp_SendFileInfoList.Count() == 0)
+            {
+                ScanSendDataFiles();
+                QThread::msleep(500);
+                continue;
+            }
+            else
+            {
+
+                sftp_SendFileInfo = sftp_SendFileInfoList.GetFirstFile();
+                curFilename = QString(sftp_SendFileInfo.filename);
+                RefreshLocalFileList();
+
+                if(sftp_SendFileInfo.filename.isNull() || sftp_SendFileInfo.filename.isEmpty())
+                {
+                    QThread::msleep(50);
+                    continue;
+                }
+
+                QByteArray cvt;
+                QString fpath = QString("%1/%2/").arg(SFTP_SEND_PATH).arg(config.centername);
+
+                QFile file(sftp_SendFileInfo.filepath);
+                if(!file.open(QIODevice::ReadOnly))
+                {
+                    continue;
+                }
+
+                //파일 싸이즈가 0이면 삭제한다.
+                if(file.size() == 0)
+                {
+                    // 2초간 기다려본다.
+                    QThread::msleep(2000);
+                    try {
+                        if(file.size() == 0)
+                        {
+                            file.close();
+                            logstr = QString("SFTP : 파일 크기 에러(0)-->삭제: %1").arg(sftp_SendFileInfo.filename);
+                            plog->write(logstr,LOG_NOTICE); //qDebug() << logstr;
+                            emit logappend(logstr);
+                            sftp_SendFileInfoList.RemoveFirstFile(sftp_SendFileInfo);
+                        }
+                    }
+                    catch (exception ex)
+                    {
+                        #ifdef QT_QML_DEBUG
+                        qDebug() << ex.what();
+                        #endif
+                        logstr = QString("SFTP : 파일 크기 에러(0)-->삭제: 예외처리 %1 %2 %3").arg(__FILE__).arg(__LINE__).arg(ex.what());
+                        plog->write(logstr,LOG_ERR);
+                    }
+                    catch (...) {
+
+                        logstr = QString("SFTP : 파일 크기 에러(0)-->삭제: 예외처리 %1 %2").arg(__FILE__).arg(__LINE__);
+                        plog->write(logstr,LOG_ERR);
+
+                    }
+                    continue;
+                }
+
+                fpath.append(sftp_SendFileInfo.filename);
+                cvt = fpath.toLocal8Bit();
+                localfile = cvt.data();
+
+                if(!isLegalFileName(sftp_SendFileInfo.filename))
+                {
+                    try
+                    {
+                        logstr = QString("파일이름 이상-->삭제: %1").arg(sftp_SendFileInfo.filename);
+                        plog->write(logstr, LOG_NOTICE);
+                        emit logappend(logstr);
+                        sftp_SendFileInfoList.RemoveFirstFile(sftp_SendFileInfo);
+                    }
+                    catch(exception ex)
+                    {
+                        logstr = QString("파일이름 이상-->삭제: 예외처리 %1 %2 %3").arg(__FILE__).arg(__LINE__).arg(ex.what());
+                        plog->write(logstr,LOG_ERR);
+                    }
+                    catch (...)
+                    {
+                        logstr = QString("파일이름 이상-->삭제: 예외처리 %1 %2").arg(__FILE__).arg(__LINE__);
+                        plog->write(logstr,LOG_ERR);
+                    }
+
+                    QThread::msleep(100);
+                    continue;
+                }
+
+                if(sftpput(sftp_SendFileInfo.filename,sftp_SendFileInfo.filename))
+                {
+
+                    QString filename = sftp_SendFileInfo.filename;
+
+                   if(config.bimagebackup)
+                   {
+                       //이미지를 백업하는 옵션이 있으면...
+                       CopyFile(sftp_SendFileInfo);
+                   }
+
+                    sftp_SendFileInfoList.RemoveFirstFile(sftp_SendFileInfo);
+                    startTick = QDateTime::currentDateTime();
+
+                    lastCount = sftp_SendFileInfoList.Count();
+                    logstr = QString("SFTP 전송 성공: %1").arg(filename);
+                    plog->write(logstr, LOG_NOTICE);
+                    emit logappend(logstr);
+
+                    QThread::msleep(10);
+
+                }
+                else
+                {
+                    QString filename = sftp_SendFileInfo.filename;
+                    logstr = QString("SFTP 전송 실패: %1 remain(%2)").arg(filename);
+                    plog->write(logstr, LOG_NOTICE);
+                    emit logappend(logstr);
+                    emit remoteFileUpdate(NULL, NULL, QDateTime::currentDateTime(), false);
+                    SftpShutdown();
+                    QThread::msleep(3000);
+
+                }
+
+                RefreshLocalFileList();
+            }  //파일이 있는 경우
+
+        } catch (exception ex) {
+#ifdef QT_QML_DEBUG
+            qDebug() << ex.what();
+#endif
+            QString logstr = QString("SftpThrdWorker 예외처리 %1 %2 %3").arg(__FILE__).arg(__LINE__).arg(ex.what());
+            plog->write(logstr,LOG_ERR);
+        }
+        catch(...)
+        {
+            QString logstr = QString("SftpThrdWorker 예외 %1 %2").arg(__FILE__).arg(__LINE__);
+            plog->write(logstr,LOG_ERR);
+        }
+
+
     }
 }
 #if 0
@@ -547,7 +553,7 @@ bool SftpThrWorker::sftpput(QString local, QString remote)
 
                                     emit transferProgress(nSumOfnByteRead*100/nByteRead,100);
                                 }
-                                QThread::msleep(10);
+                                //QThread::msleep(10);
                                 now = QDateTime::currentDateTime();
                             } while(nByteWrite && ((old.msecsTo(now)) < SFTP_UPLOAD_TIMEOUT));
 
@@ -576,7 +582,7 @@ bool SftpThrWorker::sftpput(QString local, QString remote)
                     //::PostMessage(this->GetSafeHwnd(),JWWM_FTP_CALLBACK,CON_STATE_DATA_SENDING, (LPARAM)(long)((float)nSumOfnByteRead*100/(float)fileSize));
 
 
-                    //localFile.close();
+                    localFile.close();
             }
             else {
 
@@ -612,7 +618,7 @@ bool SftpThrWorker::sftpput(QString local, QString remote)
                 LIBSSH2_SFTP_ATTRIBUTES attrs;
                 do{
                     rc = libssh2_sftp_fstat_ex((LIBSSH2_SFTP_HANDLE *)mp_sftp_handle, &attrs, 0);
-                    QThread::msleep(10);
+                    //QThread::msleep(10);
                     now = QDateTime::currentDateTime();
                 } while((rc < 0) && ((old.msecsTo(now)) < SFTP_TIMEOUT));
 
@@ -637,7 +643,7 @@ bool SftpThrWorker::sftpput(QString local, QString remote)
                         now = old;
                         do{
                             rc = libssh2_sftp_rename((LIBSSH2_SFTP *)mp_sftp_session,renamedRemoteFullPath.toUtf8().constData(),remoteFullPath.toUtf8().constData());
-                            QThread::msleep(10);
+                            //QThread::msleep(10);
                             now = QDateTime::currentDateTime();
                         } while((rc < 0) && ((old.msecsTo(now)) < SFTP_TIMEOUT));
 
@@ -671,7 +677,7 @@ bool SftpThrWorker::sftpput(QString local, QString remote)
                             now = old;
                             do{
                                 rc = libssh2_sftp_unlink((LIBSSH2_SFTP *)mp_sftp_session,renamedRemoteFullPath.toUtf8().constData());
-                                QThread::msleep(10);
+                                //QThread::msleep(10);
                                 now = QDateTime::currentDateTime();
                             } while((rc < 0) && ((old.msecsTo(now)) < SFTP_TIMEOUT));
 
@@ -890,6 +896,7 @@ void SftpThrWorker::ScanSendDataFiles()
     if( sftp_SendFileInfoList.Count() > 0)
     {
         logstr = QString("SFTP 전송 파일 리스트 : %1").arg(sftp_SendFileInfoList.Count());
+
         plog->write(logstr,LOG_NOTICE);
         qDebug() <<  logstr;
         emit logappend(logstr);

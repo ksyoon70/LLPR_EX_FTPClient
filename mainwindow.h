@@ -16,7 +16,7 @@ namespace Ui {
 class MainWindow;
 }
 
-#define Program_Version  "LLPR_EX_FTPClient v1.1.0 (date: 2021/05/24)"
+#define Program_Version  "LLPR_EX_FTPClient v1.2.0 (date: 2021/07/06)"
 #define FTP_BUFFER (3145728)
 //#define SSH_WATCH
 class MainWindow : public QMainWindow
