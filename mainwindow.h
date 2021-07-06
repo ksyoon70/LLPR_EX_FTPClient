@@ -63,6 +63,7 @@ private slots:
     void stateChanged(QAbstractSocket::SocketState);
     void socketError(QAbstractSocket::SocketError);
     void on_reRefreshButton_clicked();
+    void switchcall(const QString&);
 
 protected:
     void showEvent(QShowEvent *ev);

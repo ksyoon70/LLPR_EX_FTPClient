@@ -181,6 +181,7 @@ void SftpThrWorker::doWork()
                             plog->write(logstr,LOG_NOTICE); //qDebug() << logstr;
                             emit logappend(logstr);
                             sftp_SendFileInfoList.RemoveFirstFile(sftp_SendFileInfo);
+                            RefreshLocalFileList();
                         }
                     }
                     catch (exception ex)
@@ -212,6 +213,7 @@ void SftpThrWorker::doWork()
                         plog->write(logstr, LOG_NOTICE);
                         emit logappend(logstr);
                         sftp_SendFileInfoList.RemoveFirstFile(sftp_SendFileInfo);
+                        RefreshLocalFileList();
                     }
                     catch(exception ex)
                     {
@@ -230,6 +232,7 @@ void SftpThrWorker::doWork()
 
                 if(sftpput(sftp_SendFileInfo.filename,sftp_SendFileInfo.filename))
                 {
+                     QThread::msleep(200);
 
                     QString filename = sftp_SendFileInfo.filename;
 
@@ -387,7 +390,7 @@ bool SftpThrWorker::Sftp_Init_Session()
                     QThread::msleep(10);
                 }
                 if(rc) {
-                    logstr = QString("Authentication by password failed.");
+                     logstr = QString("Authentication by password failed.");
                     status = false;
                 }
                 else
@@ -553,7 +556,7 @@ bool SftpThrWorker::sftpput(QString local, QString remote)
 
                                     emit transferProgress(nSumOfnByteRead*100/nByteRead,100);
                                 }
-                                //QThread::msleep(10);
+                                QThread::msleep(10);
                                 now = QDateTime::currentDateTime();
                             } while(nByteWrite && ((old.msecsTo(now)) < SFTP_UPLOAD_TIMEOUT));
 
@@ -618,7 +621,7 @@ bool SftpThrWorker::sftpput(QString local, QString remote)
                 LIBSSH2_SFTP_ATTRIBUTES attrs;
                 do{
                     rc = libssh2_sftp_fstat_ex((LIBSSH2_SFTP_HANDLE *)mp_sftp_handle, &attrs, 0);
-                    //QThread::msleep(10);
+                    QThread::msleep(10);
                     now = QDateTime::currentDateTime();
                 } while((rc < 0) && ((old.msecsTo(now)) < SFTP_TIMEOUT));
 
@@ -643,7 +646,7 @@ bool SftpThrWorker::sftpput(QString local, QString remote)
                         now = old;
                         do{
                             rc = libssh2_sftp_rename((LIBSSH2_SFTP *)mp_sftp_session,renamedRemoteFullPath.toUtf8().constData(),remoteFullPath.toUtf8().constData());
-                            //QThread::msleep(10);
+                            QThread::msleep(10);
                             now = QDateTime::currentDateTime();
                         } while((rc < 0) && ((old.msecsTo(now)) < SFTP_TIMEOUT));
 
@@ -677,7 +680,7 @@ bool SftpThrWorker::sftpput(QString local, QString remote)
                             now = old;
                             do{
                                 rc = libssh2_sftp_unlink((LIBSSH2_SFTP *)mp_sftp_session,renamedRemoteFullPath.toUtf8().constData());
-                                //QThread::msleep(10);
+                                QThread::msleep(10);
                                 now = QDateTime::currentDateTime();
                             } while((rc < 0) && ((old.msecsTo(now)) < SFTP_TIMEOUT));
 
@@ -1023,6 +1026,8 @@ bool SftpThrWorker::connectSocket(QString host, qint32 port)
         if(m_socket->waitForConnected(3000))
         {
             connectState = true;
+            commonvalues::center_list[0].status = true;
+            commonvalues::SftpSocketConn = true;
         }
 
     }
@@ -1042,6 +1047,8 @@ bool SftpThrWorker::CloseSocket()
 {
     if(m_socket != nullptr)
     {
+        m_socket->waitForDisconnected(3000);
+        m_socket->disconnectFromHost();
         m_socket->close();
 
         commonvalues::center_list[0].status = false;

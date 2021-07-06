@@ -18,6 +18,9 @@ MainWindow::MainWindow(QWidget *parent) :
 
     m_maxlogline = 500;
 
+    ui->comboBox->addItem("FTP");
+    ui->comboBox->addItem("SFTP");
+
     ui->localFileList->setEnabled(true);
     ui->localFileList->setRootIsDecorated(false);
     ui->localFileList->setHeaderLabels(QStringList() << tr("Name") << tr("Size") << tr("Time"));
@@ -101,6 +104,8 @@ void MainWindow::init()
         mp_tWorker->SetConfig(commonvalues::center_list.value(0),m_pftp);
 
         mp_wThread->start();
+
+        ui->comboBox->setCurrentIndex(0);
     }
     else if(QString::compare(commonvalues::TransferType, "SFTP") == 0)
     {
@@ -133,9 +138,12 @@ void MainWindow::init()
         QObject::connect(this, SIGNAL(SocketShutdown()), mp_stWorker, SLOT(SftpShutdown()),Qt::DirectConnection);
         //QObject::connect(this, SIGNAL(remoteUpdateDir()), mp_stWorker, SLOT(remoteConnect()),Qt::DirectConnection);
 
+        ui->comboBox->setCurrentIndex(1);
         //sshInit();
         mp_swThread->start();
     }
+
+    connect(ui->comboBox,SIGNAL(currentIndexChanged(const QString&)),this,SLOT(switchcall(const QString&)));
 
 
     //삭제 쓰레드 생성
@@ -1018,6 +1026,32 @@ void MainWindow::on_reRefreshButton_clicked()
         mp_stWorker->SetUpDateRemoteDir();
     }
 }
+
+void MainWindow::switchcall(const QString &str)
+{
+    QString title = "CENTER|LIST" + QString::number(0);
+    if(str.compare("FTP") == 0)
+    {
+
+        pcfg->set(title,"TransferType","FTP");
+        commonvalues::center_list[0].transfertype = "FTP";
+        pcfg->set(title,"FTPPort","21");
+        commonvalues::center_list[0].ftpport = 21;
+    }
+    else
+    {
+
+        pcfg->set(title,"TransferType","SFTP");
+        commonvalues::center_list[0].transfertype = "SFTP";
+        pcfg->set(title,"FTPPort","22");
+        commonvalues::center_list[0].ftpport = 22;
+    }
+
+    QMessageBox::warning(this, tr("설정 변경"),
+                                 tr("변경된 내용을 적용하려면 재실행 하십시오."));
+
+    pcfg->save();
+}
 void MainWindow::showEvent(QShowEvent *ev)
 {
     QMainWindow::showEvent(ev);
@@ -1067,16 +1101,14 @@ void MainWindow::remoteFileUpdate(QString rfname, QString rfsize, QDateTime rfti
 
 void MainWindow::connected()
 {
-    commonvalues::center_list[0].status = true;
-    commonvalues::SftpSocketConn = true;
+    //commonvalues::center_list[0].status = true;
+    //commonvalues::SftpSocketConn = true;
 
     QString logstr = QString("SFTP : Socket 연결 성공!!");
     logappend(logstr);
 
     ui->remoteFileList->setEnabled(true);
     ui->reRefreshButton->setEnabled(true);
-    //Sftp_Init_Session();
-    //mp_swThread->start();
 }
 
 void MainWindow::stateChanged(QAbstractSocket::SocketState)
