@@ -169,7 +169,8 @@ void SftpThrWorker::doWork()
                 }
 
                 //파일 싸이즈가 0이면 삭제한다.
-                if(file.size() == 0)
+                qint64 filesize = file.size();
+                if(filesize == 0)
                 {
                     // 2초간 기다려본다.
                     QThread::msleep(2000);
@@ -230,9 +231,15 @@ void SftpThrWorker::doWork()
                     continue;
                 }
 
+                do
+                {
+                    filesize = file.size();
+                    QThread::msleep(200);
+
+                }while(!((file.size() == filesize) && (filesize != 0)));
+
                 if(sftpput(sftp_SendFileInfo.filename,sftp_SendFileInfo.filename))
                 {
-                     QThread::msleep(200);
 
                     QString filename = sftp_SendFileInfo.filename;
 
