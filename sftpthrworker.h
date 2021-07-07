@@ -76,7 +76,7 @@ public:
     bool CloseSocket();
     bool sftpput(QString local, QString remote);
     void SetUpDateRemoteDir();
-    void remoteConnect();
+    bool remoteConnect();
 
     QString host;
     qint32 port;

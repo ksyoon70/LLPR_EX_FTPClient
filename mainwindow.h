@@ -12,11 +12,13 @@
 #include "sftpthrworker.h"
 #include <QDate>
 #include <QTcpSocket>
+#include <QMutex>
+
 namespace Ui {
 class MainWindow;
 }
 
-#define Program_Version  "LLPR_EX_FTPClient v1.2.0 (date: 2021/07/06)"
+#define Program_Version  "LLPR_EX_FTPClient v1.2.1 (date: 2021/07/07)"
 #define FTP_BUFFER (3145728)
 //#define SSH_WATCH
 class MainWindow : public QMainWindow
@@ -38,7 +40,8 @@ public:
 
 signals:
     bool SocketShutdown();
-    void remoteUpdateDir();   //원격 디렉토리 업데이트 시그널
+    bool remoteUpdateDir();   //원격 디렉토리 업데이트 시그널
+    void logTrigger(QString);
 
 private slots:
     void centerdlgview();

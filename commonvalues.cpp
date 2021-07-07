@@ -14,4 +14,5 @@ QString commonvalues::LogPath = "/media/data/Ftplog";
 QString commonvalues::BackImagePath = "/media/data/backup";
 QString commonvalues::TransferType = "FTP";
 int commonvalues::loglevel = LOG_EMERG;
-volatile bool commonvalues::SftpSocketConn = false;
+volatile bool commonvalues::socketConn = false;
+volatile bool commonvalues::prevSocketConn = false;

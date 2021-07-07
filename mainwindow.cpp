@@ -144,6 +144,7 @@ void MainWindow::init()
     }
 
     connect(ui->comboBox,SIGNAL(currentIndexChanged(const QString&)),this,SLOT(switchcall(const QString&)));
+    QObject::connect(this, SIGNAL(logTrigger(QString)),this,SLOT(logappend(QString)));
 
 
     //삭제 쓰레드 생성
@@ -738,6 +739,7 @@ void MainWindow::logappend(QString logstr)
 
     QString qdt = QDateTime::currentDateTime().toString("[HH:mm:ss:zzz] ") + logstr;
 
+
     if(brtn)
     {
         //ui->teFTPlog->setPlainText(qdt);
@@ -880,7 +882,7 @@ void MainWindow::ftpStatusChanged(int state)
         {
             CenterInfo config = commonvalues::center_list.value(0);
             QString logstr = QString("서버[%1] 연결 끊김").arg(config.ip.trimmed());
-            logappend(logstr);
+            emit logTrigger(logstr);
             mp_tWorker->CancelConnection();
             m_pftp = new QFtp();
             QObject::connect(m_pftp, SIGNAL(commandFinished(int,bool)),this, SLOT(ftpCommandFinished(int,bool)));
@@ -920,7 +922,7 @@ void MainWindow::ftpStatusChanged(int state)
 
 void MainWindow::initFtpReqHandler(QString str)
 {
-    logappend(str);
+    emit logTrigger(str);
     mp_tWorker->CancelConnection();
     m_pftp = new QFtp();
     QObject::connect(m_pftp, SIGNAL(commandFinished(int,bool)),this, SLOT(ftpCommandFinished(int,bool)));
@@ -1101,11 +1103,8 @@ void MainWindow::remoteFileUpdate(QString rfname, QString rfsize, QDateTime rfti
 
 void MainWindow::connected()
 {
-    //commonvalues::center_list[0].status = true;
-    //commonvalues::SftpSocketConn = true;
-
     QString logstr = QString("SFTP : Socket 연결 성공!!");
-    logappend(logstr);
+    emit logTrigger(logstr);
 
     ui->remoteFileList->setEnabled(true);
     ui->reRefreshButton->setEnabled(true);
@@ -1114,25 +1113,29 @@ void MainWindow::connected()
 void MainWindow::stateChanged(QAbstractSocket::SocketState)
 {
     QString logstr = QString("SFTP : Socket 상태변경");
-    logappend(logstr);
+    emit logTrigger(logstr);
 }
 
 void MainWindow::socketError(QAbstractSocket::SocketError)
 {
     QString logstr = QString("SFTP : Socket 에러");
-    logappend(logstr);
+    emit logTrigger(logstr);
+    commonvalues::socketConn = false;
+    commonvalues::prevSocketConn = true;
     ui->remoteFileList->clear();
     ui->remoteFileList->setEnabled(false);
     ui->reRefreshButton->setEnabled(false);
+
     emit SocketShutdown();
 }
 void MainWindow::disconnected()
 {
     commonvalues::center_list[0].status = false;
-    commonvalues::SftpSocketConn = false;
+    commonvalues::socketConn = false;
+    commonvalues::prevSocketConn = true;
 
     QString logstr = QString("SFTP : Socket 연결 끊김..");
-    logappend(logstr);
+    emit logTrigger(logstr);
 
     ui->remoteFileList->clear();
     ui->remoteFileList->setEnabled(false);
