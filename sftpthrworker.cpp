@@ -37,7 +37,16 @@ SftpThrWorker::SftpThrWorker(QString host, qint32 port,QObject *parent) : QObjec
 
     m_Auth_pw = 1;
 
-    config = commonvalues::center_list.value(0);
+    int max_iter = commonvalues::center_list.size();
+
+    for(int i = 0; i < max_iter;  i++)
+    {
+        config = commonvalues::center_list.value(i);
+        cf_index = i;
+          // commtype가 Normal 이나 ftponly 인 경우만 허용한다.
+        if(config.protocol_type == 0 || config.protocol_type == 2)
+            break;
+    }
 
     QString logpath = config.logPath;
     QString dir = logpath;
@@ -391,7 +400,7 @@ bool SftpThrWorker::Sftp_Init_Session()
                 /* We could authenticate via password */
                 QDateTime old1 = QDateTime::currentDateTime();
                 QDateTime now1;
-                while((rc = libssh2_userauth_password((LIBSSH2_SESSION *)mp_session, commonvalues::center_list[0].userID.toStdString().c_str(), commonvalues::center_list[0].password.toStdString().c_str())) ==
+                while((rc = libssh2_userauth_password((LIBSSH2_SESSION *)mp_session, commonvalues::center_list[cf_index].userID.toStdString().c_str(), commonvalues::center_list[cf_index].password.toStdString().c_str())) ==
                     LIBSSH2_ERROR_EAGAIN)
                 {
                     now1 = QDateTime::currentDateTime();
@@ -501,7 +510,7 @@ bool SftpThrWorker::sftpput(QString local, QString remote)
         ftpPath = "/";
     }
 
-    CenterInfo config = commonvalues::center_list.value(0);
+    CenterInfo config = commonvalues::center_list.value(cf_index);
     remoteFullPath = QString("%1/%2").arg(ftpPath).arg(local);
     QString path = QString("%1/%2").arg(FTP_SEND_PATH).arg(config.centername);
     QString Localfilepath = QString("%1/%2").arg(path).arg(local);
@@ -709,6 +718,9 @@ bool SftpThrWorker::sftpput(QString local, QString remote)
                         {
                             //파일 이름 변경에 성공 하였다.
                             status = true;
+                            //logstr = QString("SFTP 전송 파일이름 변경 성공 : %1 -> %2").arg(renamedRemoteFullPath.toUtf8().constData()).arg(remoteFullPath.toUtf8().constData());
+                            //plog->write(logstr,LOG_NOTICE);
+                            //emit logappend(logstr);
                         }
 
 
@@ -798,7 +810,7 @@ void SftpThrWorker::CopyFile(SendFileInfo data)
     {
         QFile file(data.filepath);
 
-        CenterInfo config = commonvalues::center_list.value(0);
+        CenterInfo config = commonvalues::center_list.value(cf_index);
 
         char TempPath[MAX_PATH];
         char newFilePath[MAX_PATH];
@@ -1061,7 +1073,7 @@ bool SftpThrWorker::connectSocket(QString host, qint32 port)
         if(m_socket->waitForConnected(3000))
         {
             connectState = true;
-            commonvalues::center_list[0].status = true;
+            commonvalues::center_list[cf_index].status = true;
             commonvalues::socketConn = true;
             commonvalues::prevSocketConn = false;
         }
@@ -1087,7 +1099,7 @@ bool SftpThrWorker::CloseSocket()
         m_socket->disconnectFromHost();
         m_socket->close();
 
-        commonvalues::center_list[0].status = false;
+        commonvalues::center_list[cf_index].status = false;
         commonvalues::socketConn = false;
         commonvalues::prevSocketConn = true;
     }

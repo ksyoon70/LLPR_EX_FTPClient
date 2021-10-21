@@ -42,6 +42,7 @@ public slots:
 public:
     Syslogger *plog;
     CenterInfo config;
+    int cf_index;   //config file에서 사용하는 index
     const int MAXSFTPCOUNT = 10;
 
     const char *username;

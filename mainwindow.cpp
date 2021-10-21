@@ -65,14 +65,14 @@ void MainWindow::init()
     init_config();
 
     //log 디렉토리 생성
-    QString logpath = commonvalues::center_list[0].logPath;
+    QString logpath = commonvalues::center_list[cf_index].logPath;
     QDir mdir(logpath);
     if(!mdir.exists())
     {
          mdir.mkpath(logpath);
     }
 
-    plog = new Syslogger(this,"mainwindow",true,commonvalues::loglevel,logpath,commonvalues::center_list[0].blogsave);
+    plog = new Syslogger(this,"mainwindow",true,commonvalues::loglevel,logpath,commonvalues::center_list[cf_index].blogsave);
     QString logstr = QString("Program Start(%1)").arg(Program_Version);
     plog->write(logstr,LOG_ERR); //qDebug() << logstr;
 
@@ -101,7 +101,7 @@ void MainWindow::init()
         QObject::connect(m_pftp, SIGNAL(listInfo(QUrlInfo)),this, SLOT(addToList(QUrlInfo)));
         QObject::connect(m_pftp, SIGNAL(dataTransferProgress(qint64 ,qint64)),this, SLOT(loadProgress(qint64 ,qint64)));
 
-        mp_tWorker->SetConfig(commonvalues::center_list.value(0),m_pftp);
+        mp_tWorker->SetConfig(commonvalues::center_list.value(cf_index),m_pftp);
 
         mp_wThread->start();
 
@@ -151,7 +151,7 @@ void MainWindow::init()
 
     mp_dWorker = new DeleteWorker();
     mp_dThread = new QThread();
-    mp_dWorker->SetConfig(&commonvalues::center_list[0]);
+    mp_dWorker->SetConfig(&commonvalues::center_list[cf_index]);
     mp_dWorker->moveToThread(mp_dThread);
 
 
@@ -196,6 +196,20 @@ void MainWindow::init_config()
         applyconfig2common();
 
     }
+
+    int max_iter = commonvalues::center_list.size();
+    CenterInfo config;
+
+    for(int i = 0; i < max_iter;  i++)
+    {
+        config = commonvalues::center_list.value(i);
+        cf_index = i;
+          // commtype가 Normal 이나 ftponly 인 경우만 허용한다.
+        if(config.protocol_type == 0 || config.protocol_type == 2)
+            break;
+    }
+
+    commonvalues::TransferType = commonvalues::center_list[cf_index].transfertype;
 }
 
 void MainWindow::applyconfig2common()
@@ -261,8 +275,8 @@ void MainWindow::applyconfig2common()
         }
         else
         {
-            pcfg->set(title,"ProtocolType","2");
-            centerinfo.protocol_type = 2;
+            pcfg->set(title,"ProtocolType","0");
+            centerinfo.protocol_type = 0;
         }
         if( pcfg->getuint(title,"FTPPort",&uivalue))
         {
@@ -531,6 +545,8 @@ void MainWindow::applyconfig2common()
 
         i++;
         title = "CENTER|LIST" + QString::number(i);
+
+
     }
 
 
@@ -880,7 +896,7 @@ void MainWindow::ftpStatusChanged(int state)
     switch(state){
     case QFtp::Unconnected:
         {
-            CenterInfo config = commonvalues::center_list.value(0);
+            CenterInfo config = commonvalues::center_list.value(cf_index);
             QString logstr = QString("서버[%1] 연결 끊김").arg(config.ip.trimmed());
             emit logTrigger(logstr);
             mp_tWorker->CancelConnection();
@@ -890,12 +906,12 @@ void MainWindow::ftpStatusChanged(int state)
             QObject::connect(m_pftp, SIGNAL(listInfo(QUrlInfo)),this, SLOT(addToList(QUrlInfo)));
             QObject::connect(mp_tWorker, SIGNAL(localFileUpdate(SendFileInfo *)), this, SLOT(localFileUpdate(SendFileInfo *)));
             QObject::connect(m_pftp, SIGNAL(dataTransferProgress(qint64 ,qint64)),this, SLOT(loadProgress(qint64 ,qint64)));
-            mp_tWorker->SetConfig(commonvalues::center_list.value(0),m_pftp);
+            mp_tWorker->SetConfig(commonvalues::center_list.value(cf_index),m_pftp);
             ui->remoteFileList->setEnabled(false);
             ui->remoteFileList->clear();
             ui->progressBar->setValue(0);
             ui->reRefreshButton->setEnabled(false);
-            commonvalues::center_list[0].status = false;
+            commonvalues::center_list[cf_index].status = false;
 
         }
         break;
@@ -908,7 +924,7 @@ void MainWindow::ftpStatusChanged(int state)
     case QFtp::Connected:
         ui->remoteFileList->setEnabled(true);
         ui->reRefreshButton->setEnabled(true);
-        commonvalues::center_list[0].status = true;
+        commonvalues::center_list[cf_index].status = true;
         break;
     case QFtp::Close:
         //CancelConnection();
@@ -930,8 +946,8 @@ void MainWindow::initFtpReqHandler(QString str)
     QObject::connect(m_pftp, SIGNAL(listInfo(QUrlInfo)),this, SLOT(addToList(QUrlInfo)));
     QObject::connect(mp_tWorker, SIGNAL(localFileUpdate(SendFileInfo *)), this, SLOT(localFileUpdate(SendFileInfo *)));
     QObject::connect(m_pftp, SIGNAL(dataTransferProgress(qint64 ,qint64)),this, SLOT(loadProgress(qint64 ,qint64)));
-    mp_tWorker->SetConfig(commonvalues::center_list.value(0),m_pftp);
-    commonvalues::center_list[0].status = false;
+    mp_tWorker->SetConfig(commonvalues::center_list.value(cf_index),m_pftp);
+    commonvalues::center_list[cf_index].status = false;
 }
 
 void MainWindow::addToList(const QUrlInfo &urlInfo)
@@ -1036,17 +1052,17 @@ void MainWindow::switchcall(const QString &str)
     {
 
         pcfg->set(title,"TransferType","FTP");
-        commonvalues::center_list[0].transfertype = "FTP";
+        commonvalues::center_list[cf_index].transfertype = "FTP";
         pcfg->set(title,"FTPPort","21");
-        commonvalues::center_list[0].ftpport = 21;
+        commonvalues::center_list[cf_index].ftpport = 21;
     }
     else
     {
 
         pcfg->set(title,"TransferType","SFTP");
-        commonvalues::center_list[0].transfertype = "SFTP";
+        commonvalues::center_list[cf_index].transfertype = "SFTP";
         pcfg->set(title,"FTPPort","22");
-        commonvalues::center_list[0].ftpport = 22;
+        commonvalues::center_list[cf_index].ftpport = 22;
     }
 
     QMessageBox::warning(this, tr("설정 변경"),
@@ -1079,14 +1095,14 @@ void MainWindow::remoteFileUpdate(QString rfname, QString rfsize, QDateTime rfti
     if(rfname == NULL)
     {
         ui->remoteFileList->clear();
-        commonvalues::center_list[0].status = false;
+        commonvalues::center_list[cf_index].status = false;
         ui->remoteFileList->setEnabled(false);
         ui->reRefreshButton->setEnabled(false);
         return;
     }
     else
     {
-        commonvalues::center_list[0].status = true;
+        commonvalues::center_list[cf_index].status = true;
         ui->remoteFileList->setEnabled(true);
         ui->reRefreshButton->setEnabled(true);
     }
@@ -1130,7 +1146,7 @@ void MainWindow::socketError(QAbstractSocket::SocketError)
 }
 void MainWindow::disconnected()
 {
-    commonvalues::center_list[0].status = false;
+    commonvalues::center_list[cf_index].status = false;
     commonvalues::socketConn = false;
     commonvalues::prevSocketConn = true;
 
