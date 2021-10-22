@@ -39,7 +39,6 @@ private:
     QString base_path;          //로그를 저장하는 기본 폴더
     bool m_saveLog;
 
-
 signals:
 
 };

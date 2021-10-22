@@ -62,6 +62,7 @@ void CenterDlg::configsave()
         {
             QString title = "CENTER|LIST" + QString::number(i);
 
+            cfg->set(title,"TransferType",commonvalues::center_list[i].transfertype);
             cfg->set(title,"CenterName",commonvalues::center_list[i].centername);
             cfg->set(title,"IP",commonvalues::center_list[i].ip);
             cfg->setuint(title,"TCPPort",commonvalues::center_list[i].tcpport);
@@ -197,6 +198,7 @@ void CenterDlg::on_lvCenterList_clicked(const QModelIndex &index)
 
     int irow = index.row();
 
+    ui->leTransferType->setText( commonvalues::center_list[irow].transfertype);
     ui->leCenterName->setText( commonvalues::center_list[irow].centername );
     ui->leIP->setText( commonvalues::center_list[irow].ip );
     ui->leTCPPort->setText( QString::number(commonvalues::center_list[irow].tcpport));

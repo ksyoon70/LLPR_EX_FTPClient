@@ -5,8 +5,11 @@
 #-------------------------------------------------
 
 QT       += core gui ftp xml
+QT       += network
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+
+CONFIG += c++11
 
 TARGET = LLPR_EX_FTPClient
 TEMPLATE = app
@@ -33,7 +36,8 @@ SOURCES += \
     centerdlg.cpp \
     commonvalues.cpp \
     syslogger.cpp \
-    threadworker.cpp
+    threadworker.cpp \
+    sftpthrworker.cpp
 
 HEADERS += \
     deleteworker.h \
@@ -44,7 +48,8 @@ HEADERS += \
     commonvalues.h \
     syslogger.h \
     dataclass.h \
-    threadworker.h
+    threadworker.h \
+    sftpthrworker.h
 
 FORMS += \
         mainwindow.ui \
@@ -61,6 +66,10 @@ RESOURCES += \
     images/red.png \
     images/blue.png \
     icons/ftp-icon.png
+
+# SFTP를 사용하기 위한 라이브러리
+LIBS += \
+        /usr/lib/x86_64-linux-gnu/libssh2.so
 
 #  이방법은 윈도우에서 아이콘을 세팅 할때
 #RC_ICONS += \

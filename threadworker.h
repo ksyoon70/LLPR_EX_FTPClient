@@ -78,6 +78,7 @@ public:
     QFtp::State last_state;
     QDateTime lastHostlookup;
     CenterInfo config;
+    int cf_index;       //config file에서 사용하는 index
     void ScanSendDataFiles();
 
     void CancelConnection();

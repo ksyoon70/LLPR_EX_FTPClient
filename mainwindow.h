@@ -9,11 +9,18 @@
 #include "QThread"
 #include "threadworker.h"
 #include "deleteworker.h"
+#include "sftpthrworker.h"
 #include <QDate>
+#include <QTcpSocket>
+#include <QMutex>
+
 namespace Ui {
 class MainWindow;
 }
 
+#define Program_Version  "LLPR_EX_FTPClient v1.2.2 (date: 2021/10/20)"
+#define FTP_BUFFER (3145728)
+//#define SSH_WATCH
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -29,6 +36,13 @@ public:
     void init_mainthr();
     bool loglinecheck();
     void checkcenterstatus();
+    static MainWindow *getMainWinPtr();
+    int cf_index;   //config file에서 사용하는 index
+
+signals:
+    bool SocketShutdown();
+    bool remoteUpdateDir();   //원격 디렉토리 업데이트 시그널
+    void logTrigger(QString);
 
 private slots:
     void centerdlgview();
@@ -47,11 +61,20 @@ private slots:
     void addToList(const QUrlInfo &urlInfo);
     void localFileUpdate(SendFileInfo *pItem);
     void loadProgress(qint64 bytesSent,qint64 bytesTotal);
-
+    void remoteFileUpdate(QString rfname, QString rfsize, QDateTime rftime, bool isDir);
+    void disconnected();
+    void connected();
+    void stateChanged(QAbstractSocket::SocketState);
+    void socketError(QAbstractSocket::SocketError);
     void on_reRefreshButton_clicked();
+    void switchcall(const QString&);
+
+protected:
+    void showEvent(QShowEvent *ev);
+    void showEventHelper();
 
 private:
-#define Program_Version  "LLPR_EX_FTPClient v1.1.0 (date: 2021/05/24)"
+
     Ui::MainWindow *ui;
 
     configdlg *pconfigdlg;
@@ -75,6 +98,19 @@ private:
     QThread *mp_dThread;
     QDate NowTime;
     QDate OldTime;
+
+    QThread *mp_swThread;
+    SftpThrWorker *mp_stWorker;
+    QString logstr;
+    int m_Auth_pw;
+
+    static MainWindow * pMainWindow;
+    char	*m_lpBuffer;
+#ifdef SSH_WATCH
+    bool transStrart;
+    QDateTime transStartTime;
+#endif
+
 };
 
 #endif // MAINWINDOW_H

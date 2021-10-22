@@ -2,15 +2,24 @@
 #include "ui_mainwindow.h"
 #include "commonvalues.h"
 
+#define SFTP_TIMEOUT				(1000)
+#define MAX_SFTP_OUTGOING_SIZE      (500000)
+MainWindow * MainWindow::pMainWindow = nullptr;
+
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
 
+    pMainWindow = this;
+
     this->setWindowTitle(Program_Version);
 
     m_maxlogline = 500;
+
+    ui->comboBox->addItem("FTP");
+    ui->comboBox->addItem("SFTP");
 
     ui->localFileList->setEnabled(true);
     ui->localFileList->setRootIsDecorated(false);
@@ -28,6 +37,10 @@ MainWindow::MainWindow(QWidget *parent) :
 
     NowTime = QDate::currentDate();
 
+    m_lpBuffer = new char[FTP_BUFFER + 1];
+#ifdef SSH_WATCH
+    transStrart = false;
+#endif
     init();
 }
 
@@ -38,6 +51,10 @@ MainWindow::~MainWindow()
     {
         mp_dWorker->Stop();
     }
+
+    if(m_lpBuffer)
+        delete [] m_lpBuffer;
+
     delete qTimer;
     delete ui;
 }
@@ -48,48 +65,96 @@ void MainWindow::init()
     init_config();
 
     //log 디렉토리 생성
-    QString logpath = commonvalues::center_list[0].logPath;
+    QString logpath = commonvalues::center_list[cf_index].logPath;
     QDir mdir(logpath);
     if(!mdir.exists())
     {
          mdir.mkpath(logpath);
     }
 
-    plog = new Syslogger(this,"mainwindow",true,commonvalues::loglevel,logpath,commonvalues::center_list[0].blogsave);
+    plog = new Syslogger(this,"mainwindow",true,commonvalues::loglevel,logpath,commonvalues::center_list[cf_index].blogsave);
     QString logstr = QString("Program Start(%1)").arg(Program_Version);
     plog->write(logstr,LOG_ERR); //qDebug() << logstr;
 
     pcenterdlg = new CenterDlg(pcfg);
     pconfigdlg = new configdlg(pcfg);
 
-    mp_tWorker = new ThreadWorker();
-    mp_wThread = new QThread();
-    m_pftp = new QFtp();
-    mp_tWorker->moveToThread(mp_wThread);
+    if(QString::compare(commonvalues::TransferType, "FTP") == 0)
+    {
+        // FTP Mode //
+        mp_tWorker = new ThreadWorker();
+        mp_wThread = new QThread();
+        m_pftp = new QFtp();
+        mp_tWorker->moveToThread(mp_wThread);
+
+        //설정값 저장
+        QObject::connect(mp_wThread, SIGNAL(started()), mp_tWorker, SLOT(doWork()));
+        QObject::connect(mp_wThread, SIGNAL(finished()), mp_wThread, SLOT(deleteLater()));
+        QObject::connect(mp_tWorker, SIGNAL(finished()), mp_wThread, SLOT(quit()));
+        QObject::connect(mp_tWorker, SIGNAL(finished()), this, SLOT(quitWThread()));
+        QObject::connect(mp_tWorker, SIGNAL(finished()), mp_tWorker, SLOT(deleteLater()));
+        QObject::connect(mp_tWorker, SIGNAL(logappend(QString)),this,SLOT(logappend(QString)));
+        QObject::connect(mp_tWorker, SIGNAL(localFileUpdate(SendFileInfo *)), this, SLOT(localFileUpdate(SendFileInfo *)));
+        QObject::connect(mp_tWorker, SIGNAL(initFtpReq(QString)),this, SLOT(initFtpReqHandler(QString)));
+        QObject::connect(m_pftp, SIGNAL(commandFinished(int,bool)),this, SLOT(ftpCommandFinished(int,bool)));
+        QObject::connect(m_pftp, SIGNAL(stateChanged(int)),this, SLOT(ftpStatusChanged(int)));
+        QObject::connect(m_pftp, SIGNAL(listInfo(QUrlInfo)),this, SLOT(addToList(QUrlInfo)));
+        QObject::connect(m_pftp, SIGNAL(dataTransferProgress(qint64 ,qint64)),this, SLOT(loadProgress(qint64 ,qint64)));
+
+        mp_tWorker->SetConfig(commonvalues::center_list.value(cf_index),m_pftp);
+
+        mp_wThread->start();
+
+        ui->comboBox->setCurrentIndex(0);
+    }
+    else if(QString::compare(commonvalues::TransferType, "SFTP") == 0)
+    {
+        // SFTP Mode //
+        m_Auth_pw = 1;
+
+        //m_socket = new QTcpSocket();
+
+        QString title = "CENTER|LIST" + QString::number(0);
+        QString ipaddr = pcfg->get(title,"IP");
+        QString socketport = pcfg->get(title,"FTPPort");
+        mp_stWorker = new SftpThrWorker(ipaddr,socketport.toInt());
+        mp_swThread = new QThread();
+        mp_stWorker->moveToThread(mp_swThread);
+
+        QObject::connect(mp_swThread, SIGNAL(started()), mp_stWorker, SLOT(doWork()));
+        QObject::connect(mp_swThread, SIGNAL(finished()), mp_swThread, SLOT(deleteLater()));
+        QObject::connect(mp_stWorker, SIGNAL(finished()), mp_swThread, SLOT(quit()));
+        QObject::connect(mp_stWorker, SIGNAL(finished()), this, SLOT(quitWThread()));
+        QObject::connect(mp_stWorker, SIGNAL(finished()), mp_stWorker, SLOT(deleteLater()));
+        QObject::connect(mp_stWorker, SIGNAL(logappend(QString)),this,SLOT(logappend(QString)));
+        QObject::connect(mp_stWorker, SIGNAL(localFileUpdate(SendFileInfo *)), this, SLOT(localFileUpdate(SendFileInfo *)));
+        QObject::connect(mp_stWorker, SIGNAL(transferProgress(qint64, qint64)), this, SLOT(loadProgress(qint64,qint64)));
+        QObject::connect(mp_stWorker, SIGNAL(remoteFileUpdate(QString, QString, QDateTime, bool)), this, SLOT(remoteFileUpdate(QString, QString, QDateTime, bool)));
+
+        QObject::connect(mp_stWorker->m_socket, SIGNAL(connected()), this, SLOT(connected()),Qt::DirectConnection);
+        QObject::connect(mp_stWorker->m_socket, SIGNAL(disconnected()), this, SLOT(disconnected()),Qt::DirectConnection);
+        QObject::connect(mp_stWorker->m_socket, SIGNAL(stateChanged()), this, SLOT(stateChanged()),Qt::DirectConnection);
+        QObject::connect(mp_stWorker->m_socket, SIGNAL(error()), this, SLOT(socketError()),Qt::DirectConnection);
+        QObject::connect(this, SIGNAL(SocketShutdown()), mp_stWorker, SLOT(SftpShutdown()),Qt::DirectConnection);
+        //QObject::connect(this, SIGNAL(remoteUpdateDir()), mp_stWorker, SLOT(remoteConnect()),Qt::DirectConnection);
+
+        ui->comboBox->setCurrentIndex(1);
+        //sshInit();
+        mp_swThread->start();
+    }
+
+    connect(ui->comboBox,SIGNAL(currentIndexChanged(const QString&)),this,SLOT(switchcall(const QString&)));
+    QObject::connect(this, SIGNAL(logTrigger(QString)),this,SLOT(logappend(QString)));
 
 
     //삭제 쓰레드 생성
-#if 1
+
     mp_dWorker = new DeleteWorker();
     mp_dThread = new QThread();
-    mp_dWorker->SetConfig(&commonvalues::center_list[0]);
+    mp_dWorker->SetConfig(&commonvalues::center_list[cf_index]);
     mp_dWorker->moveToThread(mp_dThread);
-#endif
-    //설정값 저장
 
 
-    QObject::connect(mp_wThread, SIGNAL(started()), mp_tWorker, SLOT(doWork()));
-    QObject::connect(mp_wThread, SIGNAL(finished()), mp_wThread, SLOT(deleteLater()));
-    QObject::connect(mp_tWorker, SIGNAL(finished()), mp_wThread, SLOT(quit()));
-    QObject::connect(mp_tWorker, SIGNAL(finished()), this, SLOT(quitWThread()));
-    QObject::connect(mp_tWorker, SIGNAL(finished()), mp_tWorker, SLOT(deleteLater()));
-    QObject::connect(mp_tWorker, SIGNAL(logappend(QString)),this,SLOT(logappend(QString)));
-    QObject::connect(mp_tWorker, SIGNAL(localFileUpdate(SendFileInfo *)), this, SLOT(localFileUpdate(SendFileInfo *)));
-    QObject::connect(mp_tWorker, SIGNAL(initFtpReq(QString)),this, SLOT(initFtpReqHandler(QString)));
-    QObject::connect(m_pftp, SIGNAL(commandFinished(int,bool)),this, SLOT(ftpCommandFinished(int,bool)));
-    QObject::connect(m_pftp, SIGNAL(stateChanged(int)),this, SLOT(ftpStatusChanged(int)));
-    QObject::connect(m_pftp, SIGNAL(listInfo(QUrlInfo)),this, SLOT(addToList(QUrlInfo)));
-    QObject::connect(m_pftp, SIGNAL(dataTransferProgress(qint64 ,qint64)),this, SLOT(loadProgress(qint64 ,qint64)));
 #if 1
     QObject::connect(mp_dThread, SIGNAL(started()), mp_dWorker, SLOT(doWork()));
     QObject::connect(mp_dThread, SIGNAL(finished()), mp_dThread, SLOT(deleteLater()));
@@ -99,9 +164,6 @@ void MainWindow::init()
 #endif
     initaction();
 
-    mp_tWorker->SetConfig(commonvalues::center_list.value(0),m_pftp);
-
-    mp_wThread->start();
 #if 1
     mp_dThread->start();
 #endif
@@ -110,6 +172,7 @@ void MainWindow::init()
     connect(qTimer,SIGNAL(timeout()),this,SLOT(onTimer()));
     qTimer->start(1000);
     m_mseccount=0;
+
 }
 
 void MainWindow::initaction()
@@ -133,6 +196,20 @@ void MainWindow::init_config()
         applyconfig2common();
 
     }
+
+    int max_iter = commonvalues::center_list.size();
+    CenterInfo config;
+
+    for(int i = 0; i < max_iter;  i++)
+    {
+        config = commonvalues::center_list.value(i);
+        cf_index = i;
+          // commtype가 Normal 이나 ftponly 인 경우만 허용한다.
+        if(config.protocol_type == 0 || config.protocol_type == 2)
+            break;
+    }
+
+    commonvalues::TransferType = commonvalues::center_list[cf_index].transfertype;
 }
 
 void MainWindow::applyconfig2common()
@@ -146,6 +223,16 @@ void MainWindow::applyconfig2common()
     while( ( svalue = pcfg->get(title,"IP") ) != NULL)
     {
         CenterInfo centerinfo;
+        if( ( svalue = pcfg->get(title,"TransferType") ) != NULL)
+        {
+            centerinfo.transfertype = svalue;
+            commonvalues::TransferType = svalue;
+        }
+        else
+        {
+            pcfg->set(title,"TransferType","FTP");
+            centerinfo.transfertype = "FTP";
+        }
         if( ( svalue = pcfg->get(title,"CenterName") ) != NULL )
         {
             centerinfo.centername = svalue;
@@ -188,8 +275,8 @@ void MainWindow::applyconfig2common()
         }
         else
         {
-            pcfg->set(title,"ProtocolType","2");
-            centerinfo.protocol_type = 2;
+            pcfg->set(title,"ProtocolType","0");
+            centerinfo.protocol_type = 0;
         }
         if( pcfg->getuint(title,"FTPPort",&uivalue))
         {
@@ -458,6 +545,8 @@ void MainWindow::applyconfig2common()
 
         i++;
         title = "CENTER|LIST" + QString::number(i);
+
+
     }
 
 
@@ -475,6 +564,10 @@ void MainWindow::MakeDefaultConfig()
     QString title = "CENTER|LIST" + QString::number(i);
 
     CenterInfo centerinfo;
+
+    pcfg->set(title, "TransferType", "FTP");
+    centerinfo.transfertype = "FTP";
+
     pcfg->set(title,"CenterName","center");
     centerinfo.centername = "center";
 
@@ -662,6 +755,7 @@ void MainWindow::logappend(QString logstr)
 
     QString qdt = QDateTime::currentDateTime().toString("[HH:mm:ss:zzz] ") + logstr;
 
+
     if(brtn)
     {
         //ui->teFTPlog->setPlainText(qdt);
@@ -686,7 +780,7 @@ void MainWindow::restart()
 
 void MainWindow::onTimer()
 {
-    if( m_mseccount%5 == 0)
+    if( m_mseccount == 0)
     {
         //status bar -> display center connection status
         checkcenterstatus();
@@ -697,9 +791,23 @@ void MainWindow::onTimer()
             //날짜가 바뀌면 파일을 지운다.
             mp_dWorker->doRun();
         }
+#ifdef SSH_WATCH
+        if(QString::compare(commonvalues::TransferType, "SFTP") == 0)
+        {
+            if(transStrart == true)
+            {
+               QDateTime now =  QDateTime::currentDateTime();
 
+               if((transStartTime.secsTo(now)) > 10)
+               {
+                   emit SocketShutdown();
+                   transStrart = false;
+               }
+            }
+        }
+#endif
     }
-    m_mseccount++;
+    m_mseccount =  (m_mseccount + 1) % 5;
 }
 
 void MainWindow::closeEvent(QCloseEvent *)
@@ -788,9 +896,9 @@ void MainWindow::ftpStatusChanged(int state)
     switch(state){
     case QFtp::Unconnected:
         {
-            CenterInfo config = commonvalues::center_list.value(0);
+            CenterInfo config = commonvalues::center_list.value(cf_index);
             QString logstr = QString("서버[%1] 연결 끊김").arg(config.ip.trimmed());
-            logappend(logstr);
+            emit logTrigger(logstr);
             mp_tWorker->CancelConnection();
             m_pftp = new QFtp();
             QObject::connect(m_pftp, SIGNAL(commandFinished(int,bool)),this, SLOT(ftpCommandFinished(int,bool)));
@@ -798,12 +906,12 @@ void MainWindow::ftpStatusChanged(int state)
             QObject::connect(m_pftp, SIGNAL(listInfo(QUrlInfo)),this, SLOT(addToList(QUrlInfo)));
             QObject::connect(mp_tWorker, SIGNAL(localFileUpdate(SendFileInfo *)), this, SLOT(localFileUpdate(SendFileInfo *)));
             QObject::connect(m_pftp, SIGNAL(dataTransferProgress(qint64 ,qint64)),this, SLOT(loadProgress(qint64 ,qint64)));
-            mp_tWorker->SetConfig(commonvalues::center_list.value(0),m_pftp);
+            mp_tWorker->SetConfig(commonvalues::center_list.value(cf_index),m_pftp);
             ui->remoteFileList->setEnabled(false);
             ui->remoteFileList->clear();
             ui->progressBar->setValue(0);
             ui->reRefreshButton->setEnabled(false);
-            commonvalues::center_list[0].status = false;
+            commonvalues::center_list[cf_index].status = false;
 
         }
         break;
@@ -816,7 +924,7 @@ void MainWindow::ftpStatusChanged(int state)
     case QFtp::Connected:
         ui->remoteFileList->setEnabled(true);
         ui->reRefreshButton->setEnabled(true);
-        commonvalues::center_list[0].status = true;
+        commonvalues::center_list[cf_index].status = true;
         break;
     case QFtp::Close:
         //CancelConnection();
@@ -830,7 +938,7 @@ void MainWindow::ftpStatusChanged(int state)
 
 void MainWindow::initFtpReqHandler(QString str)
 {
-    logappend(str);
+    emit logTrigger(str);
     mp_tWorker->CancelConnection();
     m_pftp = new QFtp();
     QObject::connect(m_pftp, SIGNAL(commandFinished(int,bool)),this, SLOT(ftpCommandFinished(int,bool)));
@@ -838,8 +946,8 @@ void MainWindow::initFtpReqHandler(QString str)
     QObject::connect(m_pftp, SIGNAL(listInfo(QUrlInfo)),this, SLOT(addToList(QUrlInfo)));
     QObject::connect(mp_tWorker, SIGNAL(localFileUpdate(SendFileInfo *)), this, SLOT(localFileUpdate(SendFileInfo *)));
     QObject::connect(m_pftp, SIGNAL(dataTransferProgress(qint64 ,qint64)),this, SLOT(loadProgress(qint64 ,qint64)));
-    mp_tWorker->SetConfig(commonvalues::center_list.value(0),m_pftp);
-    commonvalues::center_list[0].status = false;
+    mp_tWorker->SetConfig(commonvalues::center_list.value(cf_index),m_pftp);
+    commonvalues::center_list[cf_index].status = false;
 }
 
 void MainWindow::addToList(const QUrlInfo &urlInfo)
@@ -896,18 +1004,164 @@ void MainWindow::loadProgress(qint64 bytesSent, qint64 bytesTotal)    //Update p
     ui->label_Byte->setText(QString("%1 / %2").arg(bytesSent).arg(bytesTotal));
     ui->progressBar->setMaximum(bytesTotal); //Max
     ui->progressBar->setValue(bytesSent);  //The current value
+
+#ifdef SSH_WATCH
+    if(QString::compare(commonvalues::TransferType, "SFTP") == 0)
+    {
+        if(bytesSent == bytesTotal)
+        {
+            transStrart = false;
+        }
+        else
+        {
+            transStrart = true;
+            transStartTime = QDateTime::currentDateTime();
+        }
+    }
+#endif
+
 }
 #endif
 
 void MainWindow::on_reRefreshButton_clicked()
 {
-    if(m_pftp)
+    if(QString::compare(commonvalues::TransferType, "FTP") == 0)
     {
-        QFtp::State cur_state = m_pftp->state();
-        if(cur_state != QFtp::Unconnected)
+        if(m_pftp)
         {
-            ui->remoteFileList->clear();
-            m_pftp->list();  //서버측의 리스트를 업데이트 한다.
+            QFtp::State cur_state = m_pftp->state();
+            if(cur_state != QFtp::Unconnected)
+            {
+                ui->remoteFileList->clear();
+                m_pftp->list();  //서버측의 리스트를 업데이트 한다.
+            }
         }
     }
+    else if(QString::compare(commonvalues::TransferType, "SFTP") == 0)
+    {
+        ui->remoteFileList->clear();
+        //emit remoteUpdateDir();
+        mp_stWorker->SetUpDateRemoteDir();
+    }
 }
+
+void MainWindow::switchcall(const QString &str)
+{
+    QString title = "CENTER|LIST" + QString::number(0);
+    if(str.compare("FTP") == 0)
+    {
+
+        pcfg->set(title,"TransferType","FTP");
+        commonvalues::center_list[cf_index].transfertype = "FTP";
+        pcfg->set(title,"FTPPort","21");
+        commonvalues::center_list[cf_index].ftpport = 21;
+    }
+    else
+    {
+
+        pcfg->set(title,"TransferType","SFTP");
+        commonvalues::center_list[cf_index].transfertype = "SFTP";
+        pcfg->set(title,"FTPPort","22");
+        commonvalues::center_list[cf_index].ftpport = 22;
+    }
+
+    QMessageBox::warning(this, tr("설정 변경"),
+                                 tr("변경된 내용을 적용하려면 재실행 하십시오."));
+
+    pcfg->save();
+}
+void MainWindow::showEvent(QShowEvent *ev)
+{
+    QMainWindow::showEvent(ev);
+    showEventHelper();
+}
+
+void MainWindow::showEventHelper()
+{
+    if(QString::compare(commonvalues::TransferType, "SFTP") == 0)
+    {
+        // sshInit();
+    }
+}
+
+void MainWindow::remoteFileUpdate(QString rfname, QString rfsize, QDateTime rftime, bool isDir)
+{
+    QTreeWidgetItem *item = new QTreeWidgetItem;
+
+    item->setText(0, rfname);
+    item->setText(1, rfsize);
+    item->setText(2, rftime.toString("MMM dd yyyy"));
+
+    if(rfname == NULL)
+    {
+        ui->remoteFileList->clear();
+        commonvalues::center_list[cf_index].status = false;
+        ui->remoteFileList->setEnabled(false);
+        ui->reRefreshButton->setEnabled(false);
+        return;
+    }
+    else
+    {
+        commonvalues::center_list[cf_index].status = true;
+        ui->remoteFileList->setEnabled(true);
+        ui->reRefreshButton->setEnabled(true);
+    }
+
+    QPixmap pixmap(isDir ? ":/images/dir.png" : ":/images/file.png");
+    item->setIcon(0, pixmap);
+
+    ui->remoteFileList->addTopLevelItem(item);
+    if (!ui->remoteFileList->currentItem()) {
+        ui->remoteFileList->setCurrentItem(ui->remoteFileList->topLevelItem(0));
+        ui->remoteFileList->setEnabled(true);
+    }
+}
+
+void MainWindow::connected()
+{
+    QString logstr = QString("SFTP : Socket 연결 성공!!");
+    emit logTrigger(logstr);
+
+    ui->remoteFileList->setEnabled(true);
+    ui->reRefreshButton->setEnabled(true);
+}
+
+void MainWindow::stateChanged(QAbstractSocket::SocketState)
+{
+    QString logstr = QString("SFTP : Socket 상태변경");
+    emit logTrigger(logstr);
+}
+
+void MainWindow::socketError(QAbstractSocket::SocketError)
+{
+    QString logstr = QString("SFTP : Socket 에러");
+    emit logTrigger(logstr);
+    commonvalues::socketConn = false;
+    commonvalues::prevSocketConn = true;
+    ui->remoteFileList->clear();
+    ui->remoteFileList->setEnabled(false);
+    ui->reRefreshButton->setEnabled(false);
+
+    emit SocketShutdown();
+}
+void MainWindow::disconnected()
+{
+    commonvalues::center_list[cf_index].status = false;
+    commonvalues::socketConn = false;
+    commonvalues::prevSocketConn = true;
+
+    QString logstr = QString("SFTP : Socket 연결 끊김..");
+    emit logTrigger(logstr);
+
+    ui->remoteFileList->clear();
+    ui->remoteFileList->setEnabled(false);
+    ui->reRefreshButton->setEnabled(false);
+
+    emit SocketShutdown();
+}
+
+MainWindow *MainWindow::getMainWinPtr()
+{
+    return pMainWindow;
+}
+

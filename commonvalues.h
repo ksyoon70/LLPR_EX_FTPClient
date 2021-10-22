@@ -24,6 +24,10 @@ public:
        static QString FileSearchPath;
        static QString LogPath;
        static QString BackImagePath;
+       static QString TransferType;
+
+       static volatile bool socketConn;
+       static volatile bool prevSocketConn;     //이전 소켓 상태
 
        static int loglevel;
 };

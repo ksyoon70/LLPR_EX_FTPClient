@@ -23,7 +23,16 @@ ThreadWorker::ThreadWorker(QObject *parent) : QObject(parent)
     m_iFTPRenameFail = 0;
     m_iFTPTransFail = 0;
 
-    CenterInfo config = commonvalues::center_list.value(0);
+    int max_iter = commonvalues::center_list.size();
+
+    for(int i = 0; i < max_iter;  i++)
+    {
+        config = commonvalues::center_list.value(i);
+        cf_index = i;
+          // commtype가 Normal 이나 ftponly 인 경우만 허용한다.
+        if(config.protocol_type == 0 || config.protocol_type == 2)
+            break;
+    }
 
     QString logpath = config.logPath;
     QString dir = logpath;
@@ -300,7 +309,7 @@ void ThreadWorker::doWork()
                         //if(m_iFTPTrans > 0 || m_iFTPRenameFail > 3)
                         if(m_iFTPTrans > 0)
                         {
-                            CenterInfo config = commonvalues::center_list.value(0);
+                            CenterInfo config = commonvalues::center_list.value(cf_index);
                             if(config.bimagebackup)
                             {
                                 //이미지를 백업하는 옵션이 있으면...
@@ -561,7 +570,7 @@ void ThreadWorker::CopyFile(SendFileInfo data)
     {
         QFile file(data.filepath);
 
-        CenterInfo config = commonvalues::center_list.value(0);
+        CenterInfo config = commonvalues::center_list.value(cf_index);
 
         char TempPath[MAX_PATH];
         char newFilePath[MAX_PATH];
@@ -785,7 +794,7 @@ void SendFileInfoList::RemoveFirstFile(SendFileInfo data)
         qDebug() << QString("RemoveFile Expection");
 #endif
     }
-    mutex.unlock();
+     mutex.unlock();
 }
 
 void SendFileInfoList::ClearAll()
