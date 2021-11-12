@@ -70,7 +70,8 @@ RESOURCES += \
 # SFTP를 사용하기 위한 라이브러리
 LIBS += \
         /usr/lib/x86_64-linux-gnu/libssh2.so
-
+LIBS += \
+        /usr/lib/aarch64-linux-gnu/libssh2.so
 #  이방법은 윈도우에서 아이콘을 세팅 할때
 #RC_ICONS += \
 #    icons/ftp-icon.ico \
