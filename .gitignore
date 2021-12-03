@@ -60,3 +60,5 @@ ENV/
 *.bak
 *.user.*
 *.user
+
+build-LLPR_EX_FTPClient-Desktop-Debug/

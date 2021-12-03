@@ -963,7 +963,7 @@ bool SftpThrWorker::isLegalFileName(QString filename)
     foreach(const QChar c, filename)
     {
         // Check for control characters
-        if(!c.isLetterOrNumber())
+        if(!c.isLetterOrNumber() && c != '%')
             return false;
     }
 
