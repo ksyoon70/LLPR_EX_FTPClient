@@ -68,6 +68,10 @@ void Syslogger::Write_LogFile(const char *format, ...) {
 
      mutex.lock();
 
+     if(QString::compare(base_path, commonvalues::LogPath))
+     {
+         base_path = commonvalues::LogPath;
+     }
      sprintf(TempPath,"%s/%s/%s", base_path.toUtf8().constData(),TempDate,TempHour);
      QDir mdir(TempPath);
      if(!mdir.exists())

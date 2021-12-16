@@ -780,7 +780,8 @@ void MainWindow::restart()
 
 void MainWindow::onTimer()
 {
-    if( m_mseccount == 0)
+    m_mseccount++;
+    if( m_mseccount % 5 == 0)
     {
         //status bar -> display center connection status
         checkcenterstatus();
@@ -807,7 +808,12 @@ void MainWindow::onTimer()
         }
 #endif
     }
-    m_mseccount =  (m_mseccount + 1) % 5;
+
+    if( m_mseccount % 30 == 0)
+    {
+        // SSD Unmount Checking Process
+        SSDunmountCheck();
+    }
 }
 
 void MainWindow::closeEvent(QCloseEvent *)
@@ -1165,3 +1171,105 @@ MainWindow *MainWindow::getMainWinPtr()
     return pMainWindow;
 }
 
+void MainWindow::SSDunmountCheck()
+{
+    QString logstr;
+
+    QFile file("/proc/mounts");
+    QStringList mountpoints;
+    if(file.open(QFile::ReadOnly))
+    {
+        while(true)
+        {
+            // /proc/mounts(연결 목록) 연결 여부 확인 확인
+            QStringList parts = QString::fromLocal8Bit(file.readLine()).trimmed().split(" ");
+            if(parts.count() > 1)
+            {
+                QString dev = parts[0].mid(0, 9);
+                if(!QString::compare(dev, "/dev/sda1"))
+                {
+                    QString path = parts[1].mid(0, 11);
+
+                    if(!QString::compare(path, "/media/data"))
+                    {
+                        mountpoints << parts[0];
+                    }
+
+                    //mountpoints << parts[0];
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+    else
+    {
+        logstr = QString("디바이스 파일 열기 실패!!");
+        emit logTrigger(logstr);
+        return;
+    }
+
+    file.close();
+
+    QString tempSavePath = QString("/home/ubuntu/Nano/app/TempSave");
+    QString saveFolder = QString("FTP_Trans");
+    QString filePath = QString("%1/%2")
+            .arg(tempSavePath).arg(saveFolder);
+
+    QString saveLog = QString("Ftplog");
+    QString logPath = QString("%1/%2")
+            .arg(tempSavePath).arg(saveLog);
+
+
+    // SSD 연결 여부
+    if(mountpoints.length() > 0)
+    {
+        // SSD 연결
+        // 폴더존재여부 -> 폴더생성
+    }
+    else
+    {
+        // SSD 단절
+        // 경로변경 -> 폴더존재여부 -> 폴더생성
+        // FTP_SEND_PATH Change!!
+        if(commonvalues::FileSearchPath != filePath)
+        {
+            logstr = QString("SSD 연결실패!!");
+            emit logTrigger(logstr);
+
+            // 파일 저장경로 변경
+            QString TempPath = commonvalues::FileSearchPath;
+            commonvalues::FileSearchPath = filePath;
+            logstr = QString("파일 저장경로 변경 : %1 -> %2").arg(TempPath).arg(commonvalues::FileSearchPath);
+            emit logTrigger(logstr);
+
+            // 로그 저장경로 변경
+            QString TempLogPath = commonvalues::LogPath;
+            commonvalues::LogPath = logPath;
+            logstr = QString("로그 저장경로 변경 : %1 -> %2").arg(TempLogPath).arg(commonvalues::LogPath);
+            emit logTrigger(logstr);
+        }
+        else
+        {
+            //logstr = QString("경로 변경 에러 : %1").arg(commonvalues::FTPSavePath);
+            //plog->writeLog(commonvalues::Log_Remote, logstr,LOG_ERR);
+        }
+    }
+
+    QDir sdir(commonvalues::FileSearchPath);
+
+    if(sdir.exists())
+    {
+        if(sdir.mkdir(commonvalues::LogPath))
+        {
+            logstr = QString("로그 폴더 생성 성공..");
+            emit logTrigger(logstr);
+        }
+    }
+    else
+    {
+        // 문제 없음
+    }
+}

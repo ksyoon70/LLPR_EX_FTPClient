@@ -18,7 +18,7 @@ namespace Ui {
 class MainWindow;
 }
 
-#define Program_Version  "LLPR_EX_FTPClient v1.2.2 (date: 2021/10/20)"
+#define Program_Version  "LLPR_EX_FTPClient v1.2.3 (date: 2021/12/16)"
 #define FTP_BUFFER (3145728)
 //#define SSH_WATCH
 class MainWindow : public QMainWindow
@@ -38,6 +38,8 @@ public:
     void checkcenterstatus();
     static MainWindow *getMainWinPtr();
     int cf_index;   //config file에서 사용하는 index
+
+    void SSDunmountCheck();     // SSD Unmount checking Process
 
 signals:
     bool SocketShutdown();

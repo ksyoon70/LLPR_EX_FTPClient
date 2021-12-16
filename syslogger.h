@@ -10,6 +10,7 @@
 #include <QDebug>
 #include <syslog.h>
 #include <QMutex>
+#include "commonvalues.h"
 #define MAX_PATH       (256)
 class Syslogger : public QObject
 {
@@ -26,7 +27,6 @@ public:
     void GetCurrentDate(char *return_Date);
     void GetCurrentDateTime(char *return_Date);
     void GetCurrentHour(char *return_Date);
-
 
 public:
     bool m_showDate;

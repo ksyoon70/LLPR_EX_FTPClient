@@ -72,6 +72,12 @@ void ThreadWorker::doWork()
     {
 
         try {
+
+            if(FTP_SEND_PATH != commonvalues::FileSearchPath)
+            {
+                FTP_SEND_PATH = commonvalues::FileSearchPath;
+            }
+
             lastFilename = curFilename;
             ScanSendDataFiles();
             SendFileInfo nowFileInfo =  sendFileList.GetFirstFile();
