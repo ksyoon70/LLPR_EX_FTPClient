@@ -34,7 +34,17 @@ void DeleteWorker::doWork()
 
         //QString path = QString("%1/%2").arg(QApplication::applicationDirPath()).arg("log");
         QString path = mp_cinfo->logPath;
+
+        if(path.compare(commonvalues::curLogPath))
+        {
+            path = commonvalues::curLogPath;
+        }
         QDir logdir(path);
+
+        if(m_daysToStore != commonvalues::curDaysToStore)
+        {
+            m_daysToStore = commonvalues::curDaysToStore;
+        }
 
         QDate NowTime = QDate::currentDate();
 

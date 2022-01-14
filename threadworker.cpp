@@ -73,9 +73,9 @@ void ThreadWorker::doWork()
 
         try {
 
-            if(FTP_SEND_PATH != commonvalues::FileSearchPath)
+            if(FTP_SEND_PATH.compare(commonvalues::curFileSearchPath))
             {
-                FTP_SEND_PATH = commonvalues::FileSearchPath;
+                FTP_SEND_PATH = commonvalues::curFileSearchPath;
             }
 
             lastFilename = curFilename;
@@ -383,6 +383,10 @@ void ThreadWorker::doWork()
 void ThreadWorker::ScanSendDataFiles()
 {
     QString logstr;
+    if(FTP_SEND_PATH.compare(commonvalues::curFileSearchPath))
+    {
+        FTP_SEND_PATH = commonvalues::curFileSearchPath;
+    }
     QString path = QString("%1/%2").arg(FTP_SEND_PATH).arg(config.centername);
     QString spath = QString("%1").arg(FTP_SEND_PATH);
     QDir sdir(spath);

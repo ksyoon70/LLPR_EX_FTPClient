@@ -114,6 +114,11 @@ void SftpThrWorker::doWork()
 
         try {
 
+            if(SFTP_SEND_PATH.compare(commonvalues::curFileSearchPath))
+            {
+                SFTP_SEND_PATH = commonvalues::curFileSearchPath;
+            }
+
             if(commonvalues::socketConn == true)
             {
                 if(mp_session == nullptr)
@@ -875,6 +880,10 @@ void SftpThrWorker::RefreshLocalFileList()
 void SftpThrWorker::ScanSendDataFiles()
 {
     QString logstr;
+    if(SFTP_SEND_PATH.compare(commonvalues::curFileSearchPath))
+    {
+        SFTP_SEND_PATH = commonvalues::curFileSearchPath;
+    }
     QString path = QString("%1/%2").arg(SFTP_SEND_PATH).arg(config.centername);
     QDir dir(path);
     try

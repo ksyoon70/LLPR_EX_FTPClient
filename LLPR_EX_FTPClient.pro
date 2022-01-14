@@ -65,6 +65,8 @@ RESOURCES += \
     images/file.png \
     images/red.png \
     images/blue.png \
+    images/UnMount.png \
+    images/Mount.png \
     icons/ftp-icon.png
 
 # SFTP를 사용하기 위한 라이브러리

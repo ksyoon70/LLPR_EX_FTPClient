@@ -210,6 +210,36 @@ void MainWindow::init_config()
     }
 
     commonvalues::TransferType = commonvalues::center_list[cf_index].transfertype;
+
+    commonvalues::pMountIcon = new QLabel();
+
+    if(commonvalues::bSSDMount == false)
+    {
+        commonvalues::curFileSearchPath = QString("%1").arg(commonvalues::tFileSearchPath);
+        commonvalues::curLogPath = QString("%1").arg(commonvalues::tLogPath);
+        commonvalues::curDaysToStore = commonvalues::tDaysToStore;
+
+        QString iconPath = QString(":/images/UnMount.png");
+        //QPixmap pix(QPixmap(iconPath).scaledToHeight(ui->statusBar->height()/2));
+        QPixmap pix(QPixmap(iconPath).scaledToHeight(30));
+        commonvalues::pMountIcon->setPixmap(pix);
+        commonvalues::pMountIcon->setToolTip("SSD 이상(Unmount)");
+    }
+    else
+    {
+        commonvalues::curFileSearchPath = QString("%1").arg(commonvalues::FileSearchPath);
+        commonvalues::curLogPath = QString("%1").arg(commonvalues::LogPath);
+        commonvalues::curDaysToStore = commonvalues::DaysToStore;
+
+        QString iconPath = QString(":/images/Mount.png");
+        //QPixmap pix(QPixmap(iconPath).scaledToHeight(ui->statusBar->height()/2));
+        QPixmap pix(QPixmap(iconPath).scaledToHeight(30));
+        commonvalues::pMountIcon->setPixmap(pix);
+        commonvalues::pMountIcon->setToolTip("SSD 정상(Mount)");
+    }
+
+    // SSD Mount Icon
+    ui->statusBar->addWidget(commonvalues::pMountIcon);
 }
 
 void MainWindow::applyconfig2common()
@@ -449,11 +479,13 @@ void MainWindow::applyconfig2common()
         if( ( pcfg->getuint(title,"DaysToStore",&uivalue)) != false )
         {
             centerinfo.daysToStore = uivalue;  //백업 여부
+            commonvalues::DaysToStore = uivalue;
         }
         else
         {
             pcfg->set(title,"DaysToStore","10");
             centerinfo.daysToStore = 10;
+            commonvalues::DaysToStore = 10;
         }
         if( pcfg->getuint("CENTER","FTPRetry",&uivalue))
         {
@@ -524,6 +556,73 @@ void MainWindow::applyconfig2common()
            commonvalues::loglevel = LOG_EMERG;
        }
 
+       /*      SSD 마운트 관련 변수       */
+       //SSD 마운트 여부 읽기
+       if(pcfg->getbool("SSD_MOUNT", "SSD_Mount", &bvalue))
+       {
+           commonvalues::bSSDMount = bvalue;
+       }
+       else
+       {
+           commonvalues::bSSDMount = bvalue;
+           pcfg->setbool("SSD_MOUNT", "SSD_Mount", commonvalues::bSSDMount);
+       }
+
+       //임시 파일 저장경로 읽기
+       if( (svalue = pcfg->get("SSD_MOUNT", "TempFTPSavePath")) != NULL )
+       {
+           commonvalues::tFileSearchPath = svalue;
+       }
+       else
+       {
+           commonvalues::tFileSearchPath = QString("%1/FTP_Trans").arg(QCoreApplication::applicationDirPath());
+           pcfg->set("SSD_MOUNT", "TempFTPSavePath", commonvalues::tFileSearchPath);
+       }
+
+       //임시 로그 저장경로 읽기
+       if( (svalue = pcfg->get("SSD_MOUNT", "TempLogPath")) != NULL )
+       {
+           commonvalues::tLogPath = svalue;
+       }
+       else
+       {
+           commonvalues::tLogPath = QString("%1/Ftplog").arg(QCoreApplication::applicationDirPath());
+           pcfg->set("SSD_MOUNT", "TempLogPath", commonvalues::tLogPath);
+       }
+
+       //임시 저장기간 읽기
+       if( pcfg->getuint("SSD_MOUNT","TempDaysToStore",&uivalue))
+       {
+           commonvalues::tDaysToStore = uivalue;
+       }
+       else
+       {
+           commonvalues::tDaysToStore = 3;     //default 10days
+           pcfg->setuint("SSD_MOUNT","TempDaysToStore",commonvalues::tDaysToStore);
+       }
+
+       //마운트 정보 읽기
+       if( (svalue = pcfg->get("SSD_MOUNT", "SSD_DeviceInfo")) != NULL )
+       {
+           commonvalues::SSD_DeviceInfo = svalue;
+       }
+       else
+       {
+           commonvalues::SSD_DeviceInfo = QString("/dev/sda1");
+           pcfg->set("SSD_MOUNT", "SSD_DeviceInfo", commonvalues::SSD_DeviceInfo);
+       }
+
+       //마운트 경로 읽기
+       if( (svalue = pcfg->get("SSD_MOUNT", "SSD_Path")) != NULL )
+       {
+           commonvalues::SSD_Path = svalue;
+       }
+       else
+       {
+           commonvalues::SSD_Path = QString("/media/data");
+           pcfg->set("SSD_MOUNT", "SSD_Path", commonvalues::SSD_Path);
+       }
+
         pcfg->save();
 
 
@@ -541,16 +640,9 @@ void MainWindow::applyconfig2common()
         commonvalues::center_list.append(centerinfo);
         ui->statusBar->addWidget(centerinfo.plblstatus);
 
-
-
         i++;
         title = "CENTER|LIST" + QString::number(i);
-
-
     }
-
-
-
 }
 
 void MainWindow::MakeDefaultConfig()
@@ -678,6 +770,27 @@ void MainWindow::MakeDefaultConfig()
     }
     pcfg->set("CENTER","FTPSavePath",commonvalues::FileSearchPath);
 
+    /*      SSD 마운트 관련 변수       */
+    QString SSD_title = QString("SSD_MOUNT");
+
+    //SSD 마운트 여부 읽기
+    pcfg->setbool(SSD_title, "SSD_Mount", commonvalues::bSSDMount);
+    //임시 파일 저장경로 읽기
+    commonvalues::tFileSearchPath = QString("%1/FTP_Trans").arg(QCoreApplication::applicationDirPath());
+    pcfg->set(SSD_title, "TempFTPSavePath", commonvalues::tFileSearchPath);
+    //임시 로그 저장경로 읽기
+    commonvalues::tLogPath = QString("%1/Ftplog").arg(QCoreApplication::applicationDirPath());
+    pcfg->set(SSD_title, "TempLogPath", commonvalues::tLogPath);
+    //임시 저장기간 읽기
+    commonvalues::tDaysToStore = 3;
+    pcfg->setuint(SSD_title, "TempDaysToStore", commonvalues::tDaysToStore);
+
+    //마운트 정보 읽기
+    commonvalues::SSD_DeviceInfo = QString("/dev/sda1");
+    pcfg->set(SSD_title, "SSD_DeviceInfo", commonvalues::SSD_DeviceInfo);
+    //마운트 경로 읽기
+    commonvalues::SSD_Path = QString("/media/data");
+    pcfg->set(SSD_title, "SSD_Path", commonvalues::SSD_Path);
 
     pcfg->save();
 
@@ -1001,7 +1114,6 @@ void MainWindow::localFileUpdate(SendFileInfo * pItem)
             ui->localFileList->setEnabled(true);
         }
         pItem = nullptr;
-
     }
 
 }
@@ -1171,12 +1283,14 @@ MainWindow *MainWindow::getMainWinPtr()
     return pMainWindow;
 }
 
+// SSD Unmount 첵크
 void MainWindow::SSDunmountCheck()
 {
     QString logstr;
 
     QFile file("/proc/mounts");
     QStringList mountpoints;
+
     if(file.open(QFile::ReadOnly))
     {
         while(true)
@@ -1186,16 +1300,15 @@ void MainWindow::SSDunmountCheck()
             if(parts.count() > 1)
             {
                 QString dev = parts[0].mid(0, 9);
-                if(!QString::compare(dev, "/dev/sda1"))
+                if(!QString::compare(dev, commonvalues::SSD_DeviceInfo))
                 {
-                    QString path = parts[1].mid(0, 11);
+                    QString path = parts[1];
+                    //QString path = parts[1].mid(0, 11);
 
-                    if(!QString::compare(path, "/media/data"))
+                    if(!QString::compare(path, commonvalues::SSD_Path))
                     {
                         mountpoints << parts[0];
                     }
-
-                    //mountpoints << parts[0];
                 }
             }
             else
@@ -1213,63 +1326,142 @@ void MainWindow::SSDunmountCheck()
 
     file.close();
 
-    QString tempSavePath = QString("/home/ubuntu/Nano/app/TempSave");
-    QString saveFolder = QString("FTP_Trans");
-    QString filePath = QString("%1/%2")
-            .arg(tempSavePath).arg(saveFolder);
-
-    QString saveLog = QString("Ftplog");
-    QString logPath = QString("%1/%2")
-            .arg(tempSavePath).arg(saveLog);
-
-
     // SSD 연결 여부
-    if(mountpoints.length() > 0)
+    if(mountpoints.count() > 0)
     {
         // SSD 연결
+        commonvalues::curFileSearchPath = QString("%1").arg(commonvalues::FileSearchPath);
+        commonvalues::curLogPath = QString("%1").arg(commonvalues::LogPath);
+        commonvalues::curDaysToStore = commonvalues::DaysToStore;
         // 폴더존재여부 -> 폴더생성
-    }
-    else
-    {
-        // SSD 단절
-        // 경로변경 -> 폴더존재여부 -> 폴더생성
-        // FTP_SEND_PATH Change!!
-        if(commonvalues::FileSearchPath != filePath)
+
+        QString iconPath = QString(":/images/Mount.png");
+        //QPixmap pix(QPixmap(iconPath).scaledToHeight(ui->statusBar->height()/2));
+        QPixmap pix(QPixmap(iconPath).scaledToHeight(30));
+        commonvalues::pMountIcon->setPixmap(pix);
+        commonvalues::pMountIcon->setToolTip("SSD 정상(Mount)");
+
+        makeDirectory(commonvalues::curLogPath);
+        makeDirectory(commonvalues::curFileSearchPath);
+
+        if(commonvalues::bSSDMount == false)
         {
-            logstr = QString("SSD 연결실패!!");
+            logstr = QString("SSD 복구 (연결 성공)!!");
+            plog->write(logstr,LOG_ERR);
             emit logTrigger(logstr);
 
             // 파일 저장경로 변경
-            QString TempPath = commonvalues::FileSearchPath;
-            commonvalues::FileSearchPath = filePath;
-            logstr = QString("파일 저장경로 변경 : %1 -> %2").arg(TempPath).arg(commonvalues::FileSearchPath);
+            logstr = QString("파일 저장경로 복구 : %1 -> %2").arg(commonvalues::tFileSearchPath).arg(commonvalues::curFileSearchPath);
+            plog->write(logstr,LOG_ERR);
             emit logTrigger(logstr);
 
             // 로그 저장경로 변경
-            QString TempLogPath = commonvalues::LogPath;
-            commonvalues::LogPath = logPath;
-            logstr = QString("로그 저장경로 변경 : %1 -> %2").arg(TempLogPath).arg(commonvalues::LogPath);
+            logstr = QString("로그 저장경로 복구 : %1 -> %2").arg(commonvalues::tLogPath).arg(commonvalues::curLogPath);
+            plog->write(logstr,LOG_ERR);
             emit logTrigger(logstr);
         }
         else
         {
-            //logstr = QString("경로 변경 에러 : %1").arg(commonvalues::FTPSavePath);
-            //plog->writeLog(commonvalues::Log_Remote, logstr,LOG_ERR);
+            if(m_mseccount%600 == 0)
+            {
+               logstr = QString("SSD 상태 : 연결");
+               plog->write(logstr,LOG_ERR);
+               emit logTrigger(logstr);
+
+            }
         }
+
+        commonvalues::bSSDMount = true;
+    }
+    else
+    {
+        // SSD 단절
+        commonvalues::curFileSearchPath = QString("%1").arg(commonvalues::tFileSearchPath);
+        commonvalues::curLogPath = QString("%1").arg(commonvalues::tLogPath);
+        commonvalues::curDaysToStore = commonvalues::tDaysToStore;
+
+        QString iconPath = QString(":/images/UnMount.png");
+        //QPixmap pix(QPixmap(iconPath).scaledToHeight(ui->statusBar->height()/2));
+        QPixmap pix(QPixmap(iconPath).scaledToHeight(30));
+        commonvalues::pMountIcon->setPixmap(pix);
+        commonvalues::pMountIcon->setToolTip("SSD 이상(Unmount)");
+
+        makeDirectory(commonvalues::curLogPath);
+        makeDirectory(commonvalues::curFileSearchPath);
+
+        // 경로변경 -> 폴더존재여부 -> 폴더생성
+        // FTP_SEND_PATH Change!!
+        if(commonvalues::bSSDMount == true)
+        {
+
+            logstr = QString("SSD 연결실패!!");
+            plog->write(logstr,LOG_ERR);
+            emit logTrigger(logstr);
+
+            // 파일 저장경로 변경
+            logstr = QString("파일 저장경로 변경 : %1 -> %2").arg(commonvalues::FileSearchPath).arg(commonvalues::curFileSearchPath);
+            plog->write(logstr,LOG_ERR);
+            emit logTrigger(logstr);
+
+            // 로그 저장경로 변경
+            logstr = QString("로그 저장경로 변경 : %1 -> %2").arg(commonvalues::LogPath).arg(commonvalues::curLogPath);
+            plog->write(logstr,LOG_ERR);
+            emit logTrigger(logstr);
+        }
+        else
+        {
+            if(m_mseccount%600 == 0)
+            {
+                logstr = QString("SSD 상태 : 단절!!");
+                plog->write(logstr,LOG_ERR);
+                emit logTrigger(logstr);
+            }
+        }
+
+        commonvalues::bSSDMount = false;
     }
 
-    QDir sdir(commonvalues::FileSearchPath);
+    // SSD 마운트 여부 저장
+    pcfg->setbool("SSD_MOUNT", "SSD_Mount", commonvalues::bSSDMount);
+    pcfg->save();
 
-    if(sdir.exists())
+
+}
+
+void MainWindow::makeDirectory(QString dirName)
+{
+    QString logstr;
+    QDir sdir(dirName);
+
+    // 폴더가 없는 경우
+    if(!sdir.exists())
     {
-        if(sdir.mkdir(commonvalues::LogPath))
+        if(sdir.mkdir(dirName))
         {
-            logstr = QString("로그 폴더 생성 성공..");
+            if(dirName.compare(commonvalues::curFileSearchPath) == 0)
+            {
+                logstr = QString("파일 폴더 생성 성공..");
+                plog->write(logstr,LOG_ERR);
+                emit logTrigger(logstr);
+            }
+
+            if(dirName.compare(commonvalues::curLogPath) == 0)
+            {
+                logstr = QString("로그 폴더 생성 성공..");
+                plog->write(logstr,LOG_ERR);
+                emit logTrigger(logstr);
+            }
+        }
+        else
+        {
+            logstr = QString("이미 폴더가 있음..");
+            plog->write(logstr,LOG_ERR);
             emit logTrigger(logstr);
         }
     }
     else
     {
         // 문제 없음
+        // 10분마다 표출
     }
 }

@@ -39,7 +39,9 @@ public:
     static MainWindow *getMainWinPtr();
     int cf_index;   //config file에서 사용하는 index
 
-    void SSDunmountCheck();     // SSD Unmount checking Process
+    // SSD Unmount 첵크
+    void SSDunmountCheck();
+    void makeDirectory(QString dirName);
 
 signals:
     bool SocketShutdown();
